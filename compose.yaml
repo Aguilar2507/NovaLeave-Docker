@@ -1,0 +1,92 @@
+# NovaLeave -- local development stack (spec_005 T205).
+#
+#   cp .env.example .env && docker compose up
+#
+# Serves http://localhost:8080 against a containerized SQL Server, with migrations and
+# development seeding applied automatically on startup.
+
+name: novaleave
+
+services:
+  db:
+    # Pinned to an explicit cumulative update, never a floating tag (FR-016).
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    # The official image publishes amd64 manifests only. Declaring the platform turns an
+    # obscure "no matching manifest" error on Apple Silicon into a documented, working
+    # Rosetta emulation path (research.md R-002). Requires Docker Desktop's
+    # "Use Rosetta for x86/amd64 emulation" setting.
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env -- copy .env.example first}
+      MSSQL_PID: Developer
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      # Named volume: data survives `compose down`, and is discarded only by
+      # `compose down -v` (FR-009, FR-010).
+      - novaleave-db-data:/var/opt/mssql
+    healthcheck:
+      # Executes a real query rather than probing the port. SQL Server accepts TCP
+      # connections well before it can answer queries, and the gap is wider under
+      # emulation -- port-based checks are why cold starts fail intermittently (R-003).
+      # Note: mssql-tools18 requires -C to trust the container's self-signed certificate;
+      # examples written for 2019 use a different path and silently never pass.
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # Generous: first boot builds system databases, and does so under emulation.
+      start_period: 90s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    depends_on:
+      db:
+        # Waits for the healthcheck above, not merely for the container to start (FR-004).
+        condition: service_healthy
+    environment:
+      # Stays Development so the seeder runs and detailed errors are available.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Supplied as an environment variable rather than an appsettings file: environment
+      # configuration outranks appsettings.Development.json, so this overrides the LocalDB
+      # connection string without editing a tracked file, and keeps the password out of
+      # the repository (FR-011).
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=NovaLeave;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      # Source is mounted, not copied, so dotnet watch sees edits (FR-015).
+      - .:/src
+      # Anonymous volumes mask every build directory inside the mount. Without these, the
+      # host's bin/obj (built by a different SDK, on a different OS) shadow the
+      # container's and produce build failures that look like source errors (R-005).
+      - /src/src/NovaLeave.Domain/bin
+      - /src/src/NovaLeave.Domain/obj
+      - /src/src/NovaLeave.Application/bin
+      - /src/src/NovaLeave.Application/obj
+      - /src/src/NovaLeave.Infrastructure/bin
+      - /src/src/NovaLeave.Infrastructure/obj
+      - /src/src/NovaLeave.Presentation.Web/bin
+      - /src/src/NovaLeave.Presentation.Web/obj
+      # Persist the NuGet cache so a rebuild does not re-download packages.
+      - novaleave-nuget:/root/.nuget/packages
+      # Persist Data Protection keys. Without this the keyring is regenerated on every
+      # container recreate, silently invalidating every session cookie -- which presents
+      # as "the app logged me out again" rather than as a configuration issue.
+      - novaleave-dpkeys:/root/.aspnet/DataProtection-Keys
+    restart: unless-stopped
+
+volumes:
+  novaleave-db-data:
+  novaleave-nuget:
+  novaleave-dpkeys:

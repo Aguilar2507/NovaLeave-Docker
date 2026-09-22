@@ -1,0 +1,39 @@
+# spec_005 T201 / FR-013.
+# Authored before the Dockerfile on purpose: without it the first build uploads every
+# bin/ and obj/ directory as build context, which is slow and can poison the container
+# restore with host-built artifacts compiled against a different SDK.
+
+# Build output
+**/bin/
+**/obj/
+**/TestResults/
+artifacts/
+
+# Version control and IDE state
+.git/
+.gitignore
+.github/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Local secrets -- must never enter an image layer (FR-011)
+.env
+*.env
+!.env.example
+
+# Docker's own files: changing them must not invalidate the source layers
+Dockerfile*
+compose*.yaml
+compose*.yml
+.dockerignore
+
+# Documentation and specs: not needed to build or run the application
+.specify/
+docs/
+*.md
+
+# macOS noise
+.DS_Store

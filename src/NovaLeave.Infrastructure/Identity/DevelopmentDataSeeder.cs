@@ -6,7 +6,7 @@ namespace NovaLeave.Infrastructure.Identity;
 
 // Development data seeder - only runs in Development environment
 // Creates test users, roles, and employees for local testing
-public class DevelopmentDataSeeder
+public class DevelopmentDataSeeder : IDevelopmentDataSeeder
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;

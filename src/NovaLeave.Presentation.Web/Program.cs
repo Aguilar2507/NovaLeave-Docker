@@ -81,6 +81,19 @@ builder.Services.AddScoped<IEmployeeSecurityService, EmployeeSecurityService>();
 
 // Register development data seeder (only runs in Development environment)
 builder.Services.AddScoped<DevelopmentDataSeeder>();
+builder.Services.AddScoped<IDevelopmentDataSeeder>(sp => sp.GetRequiredService<DevelopmentDataSeeder>());
+
+// spec_005 T102/T105: startup database initialization (migrate + seed), guarded against Production.
+// Replaces the manual "apply migrations by hand" step that made a fresh container unusable.
+builder.Services.Configure<DatabaseInitializerOptions>(
+    builder.Configuration.GetSection(DatabaseInitializerOptions.SectionName));
+builder.Services.AddScoped<IDatabaseMigrator, EfCoreDatabaseMigrator>();
+builder.Services.AddScoped<DatabaseInitializer>();
+
+// spec_005 T103/FR-018: health endpoint including database reachability, so container health
+// reflects whether the app can actually serve requests rather than merely that the process runs.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>("database");
 
 // Register TimeProvider for deterministic time in tests (Constitution §2.VI)
 // Default to system time; tests replace with FakeTimeProvider
@@ -165,6 +178,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// spec_005 T103: mapped before authentication so container and orchestrator probes need no
+// credentials. Exposes status only -- no diagnostics detail, which Constitution §7.2 prohibits
+// from being publicly reachable.
+app.MapHealthChecks("/health");
+
 // Serve static files BEFORE other middleware (CSS, JS, images from wwwroot)
 // This must come early in the pipeline to avoid authentication/authorization checks for static assets
 app.UseStaticFiles();
@@ -236,12 +254,13 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Seed development data on startup (only in Development environment)
-if (app.Environment.IsDevelopment())
+// spec_005 T105: apply pending migrations and seed development data before serving traffic.
+// The Production guard and the retry budget live in DatabaseInitializer, not here, so that the
+// guard is unit-testable rather than an untested condition in the composition root.
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
-    await seeder.SeedAsync();
+    var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+    await initializer.InitializeAsync();
 }
 
 app.Run();

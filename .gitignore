@@ -3,3 +3,8 @@ obj/
 .vs/
 .vscode/
 *.user
+
+# Local container environment -- holds the development database password (spec_005 FR-011).
+# .env.example is the committed template and must stay tracked.
+.env
+

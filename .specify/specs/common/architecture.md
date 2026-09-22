@@ -26,7 +26,7 @@ This document defines the shared architectural decisions and technical context f
 | **Validation** | FluentValidation (input); Domain (business rules) |
 | **Logging** | Serilog (structured) |
 | **Testing** | xUnit, WebApplicationFactory, Playwright (E2E) |
-| **Containerization** | Docker |
+| **Containerization** | Docker — delivered for local development by [`005-docker-containerization`](../005-docker-containerization/plan.md); see [ADR-001](../../../docs/adr/ADR-001-docker-local-development-environment.md). A production image is not yet built (GAP-005-1) |
 | **CI/CD** | GitHub Actions |
 | **Deployment** | Azure-ready |
 
@@ -61,8 +61,8 @@ tests/
 
 ### Observability
 - Structured logging with Serilog (correlation IDs, request IDs)
-- Health checks
-- Metrics and tracing (baseline, not optional)
+- Health checks — `/health` delivered by `005-docker-containerization`, including an EF Core `DbContext` check
+- Metrics and tracing (baseline, not optional) — **not yet delivered by any feature**
 
 ### Time Abstraction
 - All time-dependent logic uses `TimeProvider` (Constitution §2.VI)
@@ -165,3 +165,4 @@ All production code generated during task implementation **must** be documented 
 
 - [`specs/004-initial-setup-and-authentication/plan.md`](../004-initial-setup-and-authentication/plan.md)
 - [`specs/001-vacation-request/plan.md`](../001-vacation-request/plan.md)
+- [`specs/005-docker-containerization/plan.md`](../005-docker-containerization/plan.md)
