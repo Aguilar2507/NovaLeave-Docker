@@ -1,0 +1,15 @@
+@*
+    Logout button component with anti-forgery token
+    Usage: Include in layout or view where Sign Out button is needed
+    Prerequisites: User must be authenticated
+*@
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <form method="post" asp-controller="Account" asp-action="Logout" class="d-inline">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+        </button>
+    </form>
+}

@@ -1,0 +1,89 @@
+@model IReadOnlyList<NovaLeave.Domain.Entities.VacationRequest>
+@{
+    ViewData["Title"] = "Historial de Solicitudes Resueltas";
+    var currentPage = (int)(ViewBag.CurrentPage ?? 1);
+    var totalPages = (int)(ViewBag.TotalPages ?? 1);
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Historial de Solicitudes Resueltas</h2>
+        <a asp-action="Index" class="btn btn--secondary">Volver a Pendientes</a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center" style="padding: var(--spacing-6);">
+                <h3>No hay solicitudes resueltas</h3>
+                <p class="text-muted">Aún no has aprobado ni rechazado ninguna solicitud.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="request-table">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Fecha Inicio</th>
+                        <th>Fecha Fin</th>
+                        <th>Días</th>
+                        <th>Estado</th>
+                        <th>Resuelta</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model)
+                    {
+                        <tr>
+                            <td><strong>@request.Owner.Name</strong></td>
+                            <td>@request.StartDate.ToString("d MMM yyyy")</td>
+                            <td>@request.EndDate.ToString("d MMM yyyy")</td>
+                            <td><strong>@request.RequestedDays</strong></td>
+                            <td>
+                                @if (request.Status == NovaLeave.Domain.Entities.RequestStatus.Approved)
+                                {
+                                    <span class="badge badge--approved">Aprobada</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge--rejected">Rechazada</span>
+                                }
+                            </td>
+                            <td>@request.ResolvedAt?.ToString("d MMM yyyy")</td>
+                            <td>
+                                <a asp-action="Detail" asp-route-id="@request.Id" class="btn btn-sm btn--primary">Ver Detalle</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <nav class="pagination mt-4" aria-label="Paginación del historial">
+                @if (currentPage > 1)
+                {
+                    <a asp-action="History" asp-route-page="@(currentPage - 1)" class="pagination__link">← Anterior</a>
+                }
+                else
+                {
+                    <span class="pagination__link pagination__link--disabled">← Anterior</span>
+                }
+                <span class="pagination__current">Página @currentPage de @totalPages</span>
+                @if (currentPage < totalPages)
+                {
+                    <a asp-action="History" asp-route-page="@(currentPage + 1)" class="pagination__link">Siguiente →</a>
+                }
+                else
+                {
+                    <span class="pagination__link pagination__link--disabled">Siguiente →</span>
+                }
+            </nav>
+        }
+    }
+</div>

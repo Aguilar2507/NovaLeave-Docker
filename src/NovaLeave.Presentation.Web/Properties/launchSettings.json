@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "NovaLeave.Presentation.Web": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "Account/Login",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:49389;http://localhost:49390"
+    }
+  }
+}

@@ -1,0 +1,171 @@
+@page
+@model NovaLeave.Presentation.Web.Pages.Approver.DashboardModel
+@{
+    ViewData["Title"] = "Panel de Aprobador";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 100px;">
+        <h1 class="mb-0">Solicitudes Pendientes de Aprobación</h1>
+        <a href="/approver/requests/history" class="btn btn--secondary">Ver Historial</a>
+    </div>
+
+    <!-- Sección de estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <!-- Stat card: pending count -->
+            <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); border: 2px solid var(--color-medium-gray);">
+                <div class="card-body text-center" style="padding: var(--spacing-6);">
+                    <span style="font-size: 64px; font-weight: var(--font-weight-bold); color: var(--color-azul-corporativo); display: block; line-height: 1;">
+                        @Model.PendingRequests.Count
+                    </span>
+                    <span style="font-size: var(--font-size-h3); color: var(--color-text-gray); display: block; margin-top: var(--spacing-3); font-weight: var(--font-weight-medium);">
+                        Solicitudes pendientes
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <!-- Stat card: urgent count -->
+            <div class="card" style="background: linear-gradient(135deg, #FFF3CD 0%, #FFE69C 100%); border: 2px solid #FFA000;">
+                <div class="card-body text-center" style="padding: var(--spacing-6);">
+                    <span style="font-size: 64px; font-weight: var(--font-weight-bold); color: #FF6F00; display: block; line-height: 1;">
+                        @Model.UrgentCount
+                    </span>
+                    <span style="font-size: var(--font-size-h3); color: #856404; display: block; margin-top: var(--spacing-3); font-weight: var(--font-weight-medium);">
+                        Próximas a expirar
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 100px;">
+    @if (Model.PendingRequests.Any())
+    {
+        <!-- Desktop/Tablet: Table -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="request-table">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Fechas</th>
+                        <th>Días</th>
+                        <th>Enviado</th>
+                        <th>Estado</th>
+                        <th>Expira en</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in Model.PendingRequests)
+                    {
+                        var isUrgent = Model.IsUrgent(req);
+                        var daysRemaining = Model.GetDaysUntilExpiry(req);
+
+                        <tr style="@(isUrgent ? "background-color: #FFF3CD;" : "")">
+                            <td>
+                                <strong>
+                                    @if (req.Owner != null)
+                                    {
+                                        @req.Owner.Name
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Empleado @req.OwnerId.ToString().Substring(0,8)</span>
+                                    }
+                                </strong>
+                            </td>
+                            <td>@req.StartDate.ToString("dd-MM-yyyy") – @req.EndDate.ToString("dd-MM-yyyy")</td>
+                            <td><strong>@req.RequestedDays</strong></td>
+                            <td>@req.CreatedAt.ToString("dd-MM-yyyy")</td>
+                            <td><span class="badge badge--pending">Pendiente</span></td>
+                            <td>
+                                @if (daysRemaining == 0)
+                                {
+                                    <span class="badge" style="background-color: #DC3545; color: white;">Hoy</span>
+                                }
+                                else if (daysRemaining == 1)
+                                {
+                                    <span class="badge" style="background-color: #FFC107; color: #856404;">Mañana</span>
+                                }
+                                else if (daysRemaining == 2)
+                                {
+                                <span class="badge" style="background-color: #FFC107; color: #856404;">2 días</span>
+                                }
+                                else
+                                {
+                                    <span>@daysRemaining días</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="/approver/requests/@req.Id" class="btn btn-sm btn--primary">Revisar</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile: RequestCard approver variant -->
+        <div class="d-md-none">
+            @foreach (var req in Model.PendingRequests)
+            {
+                var isUrgent = Model.IsUrgent(req);
+                var daysRemaining = Model.GetDaysUntilExpiry(req);
+                var cardClass = isUrgent ? "border-warning" : "";
+
+                <div class="card mb-3 shadow-sm @cardClass">
+                    <div class="card-body">
+                        @if (isUrgent)
+                        {
+                            <div class="alert alert-warning py-2 px-3 mb-2 small">
+                                <i class="fas fa-exclamation-triangle"></i> Urgente - Expira 
+                                @if (daysRemaining == 0)
+                                {
+                                    <strong>hoy</strong>
+                                }
+                                else if (daysRemaining == 1)
+                                {
+                                    <strong>mañana</strong>
+                                }
+                                else
+                                {
+                                    <strong>en @daysRemaining días</strong>
+                                }
+                            </div>
+                        }
+                        <h6 class="mb-2">
+                            @if (req.Owner != null)
+                            {
+                                <strong>@req.Owner.Name</strong>
+                            }
+                            else
+                            {
+                                <strong class="text-muted">Empleado @req.OwnerId.ToString().Substring(0,8)</strong>
+                            }
+                        </h6>
+                        <p class="mb-1">
+                            <i class="fas fa-calendar"></i> @req.StartDate.ToString("dd-MM-yyyy") - @req.EndDate.ToString("dd-MM-yyyy")
+                        </p>
+                        <p class="mb-2">
+                            <strong>@req.RequestedDays días</strong> laborables
+                        </p>
+                        <a href="/approver/requests/@req.Id" class="btn btn-sm btn--primary">Revisar Solicitud</a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center" style="padding: var(--spacing-6);">
+                <i class="fas fa-check-circle" style="font-size: 64px; color: var(--color-success); margin-bottom: var(--spacing-4);"></i>
+                <h3>No hay solicitudes pendientes</h3>
+                <p class="text-muted">Todas las solicitudes han sido revisadas</p>
+            </div>
+        </div>
+    }
+    </div> <!-- Close spacing wrapper -->
+</div>

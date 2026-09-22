@@ -1,0 +1,18 @@
+@*
+   Not Found (404) page
+   spec_003 §3.9 - centered error card, no sidebar, "Go to Home" CTA
+   Uses the unauthenticated shared layout (_LoginLayout) - no nav, no user context (SR-003)
+*@
+@{
+    Layout = "_LoginLayout";
+    ViewData["Title"] = "Página no encontrada";
+}
+
+<div class="error-card" style="background: var(--color-white); border-radius: var(--border-radius-xl); box-shadow: var(--shadow-xl); padding: var(--spacing-6); width: 100%; max-width: 480px; text-align: center;">
+    <h1 class="error-card__code" style="font-size: 72px; font-weight: var(--font-weight-bold); color: var(--color-azul-corporativo); margin-bottom: var(--spacing-2);">404</h1>
+    <p class="error-card__title" style="font-size: var(--font-size-h2); font-weight: var(--font-weight-semibold); color: var(--color-dark-gray); margin-bottom: var(--spacing-3);">Página No Encontrada</p>
+    <p class="error-card__description" style="color: var(--color-text-gray); margin-bottom: var(--spacing-5);">
+        La página que buscas no existe, fue movida o la URL es incorrecta.
+    </p>
+    <a href="/" class="btn btn--primary" style="width: 100%;">Ir al Inicio</a>
+</div>

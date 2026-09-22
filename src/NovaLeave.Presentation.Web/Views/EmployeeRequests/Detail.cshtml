@@ -1,0 +1,145 @@
+@*
+   Employee Request Detail (owner-only)
+   spec_003 §3.4 - StatusBadge, detail list, conditional actions (Cancel/Void/Edit), ConfirmationModal
+   Model: EmployeeRequestDetailViewModel (T512)
+*@
+@model NovaLeave.Presentation.Web.ViewModels.EmployeeRequestDetailViewModel
+@{
+    ViewData["Title"] = "Detalle de Solicitud";
+
+    ViewData["ModalId"] = "cancelModal";
+    ViewData["ModalTitle"] = "Cancelar Solicitud";
+    ViewData["ModalDescription"] = "Esta acción es irreversible. Los días reservados serán liberados.";
+    ViewData["ModalActionType"] = "danger";
+    ViewData["ModalConfirmLabel"] = "Confirmar Cancelación";
+    ViewData["ModalFormAction"] = Url.Action("Cancel", "EmployeeRequests", new { id = Model.Id });
+    ViewData["ModalIcon"] = "";
+}
+
+<div class="request-detail container mt-4">
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-muted d-inline-flex align-items-center">
+            <span style="margin-right: 8px;">←</span> Volver a mis solicitudes
+        </a>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Detalle de Solicitud</h1>
+        <partial name="Components/_StatusBadge" model="Model.Status" />
+    </div>
+
+    <section class="row">
+        <div class="col-md-8" style="display: flex; flex-direction: column;">
+            <div class="card mb-4" style="flex: 1;">
+                <h3 class="h5 mb-4" style="color: var(--color-azul-corporativo); font-weight: var(--font-weight-semibold);">Información General</h3>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 mb-3">Fecha Inicio</dt>
+                    <dd class="col-sm-8 mb-3">@Model.StartDate.ToString("dd-MM-yyyy")</dd>
+
+                    <dt class="col-sm-4 mb-3">Fecha Fin</dt>
+                    <dd class="col-sm-8 mb-3">@Model.EndDate.ToString("dd-MM-yyyy")</dd>
+
+                    <dt class="col-sm-4 mb-3">Días Solicitados</dt>
+                    <dd class="col-sm-8 mb-3"><strong style="font-size: var(--font-size-h3); color: var(--color-azul-corporativo);">@Model.RequestedDays</strong></dd>
+
+                    <dt class="col-sm-4 mb-3">Motivo</dt>
+                    <dd class="col-sm-8 mb-3">@Model.Reason</dd>
+
+                    <dt class="col-sm-4 mb-3">Enviada</dt>
+                    <dd class="col-sm-8 mb-3">@Model.CreatedAt.ToString("dd-MM-yyyy HH:mm")</dd>
+
+                    <dt class="col-sm-4 mb-0">Vence</dt>
+                    <dd class="col-sm-8 mb-0">@Model.ExpiryDate.ToString("dd-MM-yyyy")</dd>
+                </dl>
+            </div>
+
+            @if (Model.ResolvedAt.HasValue || !string.IsNullOrEmpty(Model.RejectionReason))
+            {
+                <div class="card mb-4">
+                    <h3 class="h5 mb-4" style="color: var(--color-azul-corporativo); font-weight: var(--font-weight-semibold);">Resolución</h3>
+
+                    <dl class="row mb-0">
+                        @if (Model.ResolvedAt.HasValue)
+                        {
+                            <dt class="col-sm-4 mb-3">Resuelta</dt>
+                            <dd class="col-sm-8 mb-3">@Model.ResolvedAt.Value.ToString("dd-MM-yyyy HH:mm")</dd>
+                        }
+
+                        @if (!string.IsNullOrEmpty(Model.ResolvedByFullName))
+                        {
+                            <dt class="col-sm-4 mb-3">Resuelta por</dt>
+                            <dd class="col-sm-8 mb-3">@Model.ResolvedByFullName</dd>
+                        }
+
+                        @if (!string.IsNullOrEmpty(Model.ResolutionReasonDisplay))
+                        {
+                            <dt class="col-sm-4 mb-0">@Model.ResolutionReasonLabel</dt>
+                            <dd class="col-sm-8 mb-0">@Model.ResolutionReasonDisplay</dd>
+                        }
+                    </dl>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-4">
+            <div class="card" style="height: 100%;">
+                <h3 class="h5 mb-4" style="color: var(--color-azul-corporativo); font-weight: var(--font-weight-semibold);">Acciones</h3>
+
+                <div class="d-grid gap-3">
+                    @if (Model.Status == NovaLeave.Domain.Entities.RequestStatus.Pending)
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn--primary">Editar Solicitud</a>
+                    }
+
+                    @if (Model.CanCancel)
+                    {
+                        <button type="button" class="btn btn--danger" data-modal-target="cancelModal">Cancelar Solicitud</button>
+                    }
+
+                    @if (Model.CanVoid)
+                    {
+                        <button type="button" class="btn btn--danger" data-bs-toggle="modal" data-bs-target="#voidModal">Anular Solicitud</button>
+                    }
+
+                    <a asp-action="Index" class="btn btn--secondary">Volver a Mis Solicitudes</a>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@if (Model.CanCancel)
+{
+    <!-- Cancel confirmation (spec_003 §1.3 _ConfirmationModal, SR-005) -->
+    @await Html.PartialAsync("Components/_ConfirmationModal")
+}
+
+@if (Model.CanVoid)
+{
+    <!-- Void confirmation (SR-005) - requires a reason, mirrors approver reject modal -->
+    <div class="modal fade" id="voidModal" tabindex="-1" aria-labelledby="voidModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="Void" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="voidModalLabel">Anular Solicitud</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Esto devolverá <strong>@Model.RequestedDays</strong> días a tu balance. Esta acción no se puede deshacer.</p>
+                        <div class="mb-3">
+                            <label for="voidReason" class="form-label">Motivo de anulación <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="voidReason" name="reason" rows="3" required maxlength="500"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Confirmar Anulación</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

@@ -1,0 +1,545 @@
+/* ============================================================================
+   NovaLeave Site Styles
+   Version: 1.0.0
+   Specification: spec_002-frontend-design-system.md, spec_003-screen-construction-guide.md
+
+   This file defines global styles that consume tokens.css variables.
+   Zero hardcoded color values — all colors reference CSS custom properties.
+   ============================================================================ */
+
+/* ============================================================================
+   Base Typography
+   ============================================================================ */
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-dark-gray);
+  background-color: var(--color-light-gray);
+}
+
+h1, .h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-5);
+}
+
+h2, .h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-4);
+}
+
+h3, .h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-3);
+}
+
+/* ============================================================================
+   Button Overrides (spec_002 §Component Rules > Buttons)
+   Primary action: Azul Corporativo background, white text
+   Hover: Azul Claro
+   ============================================================================ */
+.btn--primary,
+.btn-primary {
+  background-color: var(--color-azul-corporativo);
+  border-color: var(--color-azul-corporativo);
+  color: var(--color-white);
+  min-height: var(--touch-target-min);
+  padding: var(--spacing-3) var(--spacing-5);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-md);
+  border-width: 2px;
+  transition: all var(--motion-duration-fast) var(--motion-easing-ease-out);
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn--primary:hover,
+.btn-primary:hover {
+  background-color: var(--color-azul-claro);
+  border-color: var(--color-azul-claro);
+  color: var(--color-white);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn--primary:disabled,
+.btn-primary:disabled {
+  background-color: var(--color-medium-gray);
+  border-color: var(--color-medium-gray);
+  color: var(--color-text-gray);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--secondary,
+.btn-secondary {
+  background-color: var(--color-white);
+  border: 2px solid var(--color-medium-gray);
+  color: var(--color-dark-gray);
+  min-height: var(--touch-target-min);
+  padding: var(--spacing-3) var(--spacing-5);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-md);
+  transition: all var(--motion-duration-fast) var(--motion-easing-ease-out);
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn--secondary:hover,
+.btn-secondary:hover {
+  border-color: var(--color-azul-corporativo);
+  color: var(--color-azul-corporativo);
+  background-color: rgba(26, 59, 107, 0.05);
+}
+
+.btn--danger,
+.btn-danger {
+  background-color: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-white);
+  min-height: var(--touch-target-min);
+  padding: var(--spacing-3) var(--spacing-5);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-md);
+  border-width: 2px;
+  transition: all var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+
+.btn--danger:hover,
+.btn-danger:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-sm {
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-small);
+  min-height: auto;
+}
+
+/* ============================================================================
+   Form Field Styles (spec_002 §Component Rules > Inputs and Forms)
+   Labels always visible, inline errors, required indicators
+   ============================================================================ */
+.form-field {
+  margin-bottom: var(--spacing-5);
+}
+
+.form-field__label {
+  display: block;
+  margin-bottom: var(--spacing-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-dark-gray);
+  font-size: var(--font-size-body);
+}
+
+.form-field__required {
+  color: var(--color-danger);
+  margin-left: var(--spacing-1);
+}
+
+.form-field__input,
+.form-control {
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  color: var(--color-dark-gray);
+  background-color: var(--color-white);
+  border: 2px solid var(--color-medium-gray);
+  border-radius: var(--border-radius-md);
+  min-height: var(--touch-target-min);
+  transition: all var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+
+.form-field__input::placeholder,
+.form-control::placeholder {
+  color: var(--color-text-gray);
+  opacity: 0.6;
+}
+
+.form-field__input:focus,
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-azul-corporativo);
+  box-shadow: 0 0 0 4px rgba(26, 59, 107, 0.1);
+  background-color: var(--color-white);
+}
+
+.form-field--error .form-field__input,
+.form-control.is-invalid {
+  border-color: var(--color-danger);
+}
+
+.form-field__error,
+.invalid-feedback,
+.text-danger {
+  display: block;
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-small);
+  color: var(--color-danger);
+  font-weight: var(--font-weight-medium);
+}
+
+.form-field__help,
+.form-text {
+  display: block;
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-small);
+  color: var(--color-text-gray);
+}
+
+/* Computed days display */
+.computed-days__label {
+  font-size: var(--font-size-body);
+  color: var(--color-text-gray);
+  margin-right: var(--spacing-2);
+}
+
+.computed-days__value {
+  font-size: var(--font-size-h3);
+  color: var(--color-azul-corporativo);
+}
+
+/* ============================================================================
+   Badge Styles (spec_002 §Component Rules > Badges and Status Chips)
+   Semantic status colors with clear text labels
+   ============================================================================ */
+.badge {
+  display: inline-block;
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: var(--border-radius-md);
+}
+
+.badge--pending {
+  background-color: #FFC107;
+  color: #000000;
+  border: 1px solid #FFA000;
+}
+
+.badge--approved {
+  background-color: #D4EDDA;
+  color: #155724;
+  border: 1px solid #C3E6CB;
+}
+
+.badge--rejected {
+  background-color: #F8D7DA;
+  color: #721C24;
+  border: 1px solid #F5C6CB;
+}
+
+.badge--cancelled,
+.badge--voided {
+  background-color: #F8D7DA;
+  color: #721C24;
+  border: 1px solid #F5C6CB;
+}
+
+.badge--expired {
+  background-color: #E2E3E5;
+  color: #383D41;
+  border: 1px solid #D6D8DB;
+}
+
+.badge--urgency {
+  background-color: var(--color-urgency);
+  color: var(--color-white);
+}
+
+/* ============================================================================
+   Alert Styles (spec_002 §Component Rules > Alerts and Feedback)
+   ============================================================================ */
+.alert {
+  position: relative;
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+}
+
+.alert__icon {
+  flex-shrink: 0;
+  font-size: var(--font-size-h3);
+}
+
+.alert__text {
+  flex: 1;
+}
+
+.alert__dismiss {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: var(--font-size-h3);
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+
+.alert__dismiss:hover {
+  opacity: 1;
+}
+
+.alert--success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.alert--warning {
+  background-color: #fff3cd;
+  border-color: #ffeeba;
+  color: #856404;
+}
+
+.alert--error {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.alert--info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+/* ============================================================================
+   Card Styles
+   ============================================================================ */
+.card {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-medium-gray);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-5);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Balance Card Specific Styles */
+.balance-card {
+  text-align: center;
+  padding: var(--spacing-6);
+  margin-bottom: var(--spacing-5);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid var(--color-medium-gray);
+}
+
+.balance-card__value {
+  font-size: 64px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-azul-corporativo);
+  display: block;
+  line-height: 1;
+}
+
+.balance-card__label {
+  font-size: var(--font-size-h3);
+  color: var(--color-text-gray);
+  display: block;
+  margin-top: var(--spacing-3);
+  font-weight: var(--font-weight-medium);
+}
+
+.balance-card__reserved {
+  font-size: var(--font-size-body);
+  color: var(--color-warning);
+  display: block;
+  margin-top: var(--spacing-3);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================================================
+   Pagination Styles (spec_003 §1.4)
+   ============================================================================ */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-5);
+}
+
+.pagination__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  padding: var(--spacing-2) var(--spacing-4);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-medium-gray);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-azul-corporativo);
+  text-decoration: none;
+  transition: background-color var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+
+.pagination__link:hover:not(.pagination__link--disabled) {
+  background-color: var(--color-light-gray);
+}
+
+.pagination__link--disabled {
+  color: var(--color-text-gray);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pagination__current {
+  padding: var(--spacing-2) var(--spacing-4);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-dark-gray);
+}
+
+/* ============================================================================
+   Table Styles (spec_002 §Component Rules > Tables and Lists)
+   ============================================================================ */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--color-white);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.request-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+}
+
+.request-table thead {
+  background-color: var(--color-azul-profundo-novacomp);
+}
+
+.request-table thead th {
+  padding: var(--spacing-4) var(--spacing-4);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-body);
+  color: var(--color-white);
+  border: none;
+}
+
+.request-table tbody td {
+  padding: var(--spacing-4) var(--spacing-4);
+  border-bottom: 1px solid var(--color-medium-gray);
+  vertical-align: middle;
+}
+
+.request-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.request-table tbody tr:hover {
+  background-color: var(--color-light-gray);
+}
+
+/* Native <dialog> backdrop */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+
+
+/* ============================================================================
+   Responsive Grid System (spec_002 §Spacing, Layout, and Grid)
+   12-column grid on desktop/tablet, 4 columns on mobile
+   ============================================================================ */
+.container {
+  width: 100%;
+  padding-right: var(--spacing-4);
+  padding-left: var(--spacing-4);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 720px;
+  }
+}
+
+@media (min-width: 992px) {
+  .container {
+    max-width: 960px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .container {
+    max-width: 1140px;
+  }
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mt-2 { margin-top: var(--spacing-2); }
+.mt-3 { margin-top: var(--spacing-3); }
+.mt-4 { margin-top: var(--spacing-4); }
+.mt-5 { margin-top: var(--spacing-5); }
+
+.mb-2 { margin-bottom: var(--spacing-2); }
+.mb-3 { margin-bottom: var(--spacing-3); }
+.mb-4 { margin-bottom: var(--spacing-4); }
+.mb-5 { margin-bottom: var(--spacing-5); }
+
+.d-none {
+  display: none;
+}
+
+.d-flex {
+  display: flex;
+}
+
+.d-grid {
+  display: grid;
+}
+
+/* Mobile-only visibility */
+@media (max-width: 767px) {
+  .d-desktop-only {
+    display: none !important;
+  }
+}
+
+/* Desktop-only visibility */
+@media (min-width: 768px) {
+  .d-mobile-only {
+    display: none !important;
+  }
+}

@@ -1,0 +1,14 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src\NovaLeave.Domain\NovaLeave.Domain.csproj" />
+    <Project Path="src\NovaLeave.Application\NovaLeave.Application.csproj" />
+    <Project Path="src\NovaLeave.Infrastructure\NovaLeave.Infrastructure.csproj" />
+    <Project Path="src\NovaLeave.Presentation.Web\NovaLeave.Presentation.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests\NovaLeave.Domain.Tests\NovaLeave.Domain.Tests.csproj" />
+    <Project Path="tests\NovaLeave.Application.Tests\NovaLeave.Application.Tests.csproj" />
+    <Project Path="tests\NovaLeave.Presentation.Tests\NovaLeave.Presentation.Tests.csproj" />
+    <Project Path="tests\NovaLeave.E2E.Tests\NovaLeave.E2E.Tests.csproj" />
+  </Folder>
+</Solution>

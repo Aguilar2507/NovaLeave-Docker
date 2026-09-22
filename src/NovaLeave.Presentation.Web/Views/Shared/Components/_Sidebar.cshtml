@@ -1,0 +1,81 @@
+@* 
+   Sidebar Component
+   spec_003 §1.9 - Responsive navigation sidebar with role-based links
+
+   This partial can be used to extract the sidebar from _Layout.cshtml for reusability.
+   Currently the sidebar is embedded in _Layout.cshtml.
+   This file is a placeholder for future sidebar customization.
+*@
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<NovaLeave.Infrastructure.Identity.ApplicationUser> SignInManager
+@inject UserManager<NovaLeave.Infrastructure.Identity.ApplicationUser> UserManager
+
+@{
+    var isAuthenticated = SignInManager.IsSignedIn(User);
+    var isApprover = User.IsInRole("Approver");
+    var isUser = User.IsInRole("User");
+}
+
+<aside class="sidebar" aria-label="Navegación principal" aria-expanded="false">
+    <div class="sidebar__header">
+        <h2 class="sidebar__brand">NovaLeave</h2>
+        <button type="button" class="sidebar__toggle" data-nav-toggle aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+
+    <nav class="sidebar__nav">
+        <ul class="sidebar__menu">
+            @if (isUser)
+            {
+                <li class="sidebar__menu-item">
+                    <a class="sidebar__link" href="/Employee/Dashboard" aria-label="Panel de Control">
+                        <span class="sidebar__link-icon">🏠</span>
+                        <span class="sidebar__link-text">Mi Panel</span>
+                    </a>
+                </li>
+                <li class="sidebar__menu-item">
+                    <a class="sidebar__link" href="/EmployeeRequests/Create" aria-label="Solicitar Vacaciones">
+                        <span class="sidebar__link-icon">➕</span>
+                        <span class="sidebar__link-text">Solicitar Vacaciones</span>
+                    </a>
+                </li>
+                <li class="sidebar__menu-item">
+                    <a class="sidebar__link" href="/EmployeeRequests/Index" aria-label="Mis Solicitudes">
+                        <span class="sidebar__link-icon">📋</span>
+                        <span class="sidebar__link-text">Mis Solicitudes</span>
+                    </a>
+                </li>
+            }
+
+            @if (isApprover)
+            {
+                <li class="sidebar__menu-item">
+                    <a class="sidebar__link" href="/Approver/Dashboard" aria-label="Panel del Aprobador">
+                        <span class="sidebar__link-icon">✅</span>
+                        <span class="sidebar__link-text">Aprobaciones</span>
+                    </a>
+                </li>
+                <li class="sidebar__menu-item">
+                    <a class="sidebar__link" href="/Approver/Requests" aria-label="Cola de Aprobación">
+                        <span class="sidebar__link-icon">📥</span>
+                        <span class="sidebar__link-text">Cola de Aprobación</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
+
+    <div class="sidebar__footer">
+        @if (isAuthenticated)
+        {
+            @* Role Switcher - solo visible para usuarios con múltiples roles (CU-202) *@
+            @await Component.InvokeAsync("RoleSwitcher")
+
+            <div class="sidebar__user">
+                <span class="sidebar__user-name">@User.Identity?.Name</span>
+            </div>
+            <partial name="_LogoutButton" />
+        }
+    </div>
+</aside>

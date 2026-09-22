@@ -1,0 +1,64 @@
+@model NovaLeave.Presentation.Web.ViewModels.LoginViewModel
+@{
+    Layout = "_LoginLayout";
+    ViewData["Title"] = "Iniciar Sesión";
+}
+
+<div class="login-card">
+    <div class="login-header">
+        <h1>Iniciar Sesión</h1>
+        <p>Ingresa tus credenciales para acceder al sistema</p>
+    </div>
+
+    <form asp-action="Login" asp-controller="Account" method="post" id="loginForm">
+        <!-- Antiforgery token -->
+        @Html.AntiForgeryToken()
+
+        <!-- Hidden ReturnUrl field -->
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <!-- Email field using _FormField partial -->
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label">Correo Electrónico</label>
+            <input 
+                asp-for="Email" 
+                class="form-control form-control-lg" 
+                placeholder="correo@ejemplo.com"
+                autofocus
+                autocomplete="email"
+                required
+                aria-required="true" />
+            <span asp-validation-for="Email" class="text-danger" role="alert"></span>
+        </div>
+
+        <!-- Password field -->
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label">Contraseña</label>
+            <input 
+                asp-for="Password" 
+                class="form-control form-control-lg" 
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+                aria-required="true" />
+            <span asp-validation-for="Password" class="text-danger" role="alert"></span>
+        </div>
+
+        <!-- Submit button - FIXED TEXT TO SPANISH -->
+        <div class="d-grid gap-2 mt-4">
+            <button type="submit" class="btn btn--primary btn-lg btn-login" id="submitBtn">
+                <span id="submitText">Iniciar Sesión</span>
+                <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <!-- jQuery Validation (if using built-in validation) -->
+    <partial name="_ValidationScriptsPartial" />
+
+    <!-- Custom login validation script -->
+    <script src="~/js/login-validation.js"></script>
+}
+

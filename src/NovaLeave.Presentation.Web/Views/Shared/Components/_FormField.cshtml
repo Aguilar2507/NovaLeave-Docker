@@ -1,0 +1,63 @@
+@* 
+   Form Field Component
+   spec_003 §1.5 - Standardized input field with label, validation, and helper text
+
+   Parameters (via ViewData):
+   - FieldId: string
+   - FieldName: string
+   - FieldLabel: string
+   - FieldType: string (text, email, password, date, etc.)
+   - FieldValue: string (optional)
+   - FieldPlaceholder: string (optional)
+   - FieldHelp: string (optional)
+   - FieldError: string (optional)
+   - FieldRequired: bool (optional)
+*@
+@{
+    var fieldId = ViewData["FieldId"]?.ToString() ?? "field";
+    var fieldName = ViewData["FieldName"]?.ToString() ?? fieldId;
+    var fieldLabel = ViewData["FieldLabel"]?.ToString() ?? "";
+    var fieldType = ViewData["FieldType"]?.ToString() ?? "text";
+    var fieldValue = ViewData["FieldValue"]?.ToString() ?? "";
+    var fieldPlaceholder = ViewData["FieldPlaceholder"]?.ToString() ?? "";
+    var fieldHelp = ViewData["FieldHelp"]?.ToString();
+    var fieldError = ViewData["FieldError"]?.ToString();
+    var fieldRequired = (bool)(ViewData["FieldRequired"] ?? false);
+
+    var hasError = !string.IsNullOrEmpty(fieldError);
+    var describedBy = new List<string>();
+
+    if (!string.IsNullOrEmpty(fieldHelp)) describedBy.Add($"{fieldId}-help");
+    if (hasError) describedBy.Add($"{fieldId}-error");
+}
+
+<div class="form-field @(hasError ? "form-field--error" : "")">
+    <label class="form-field__label" for="@fieldId">
+        @fieldLabel
+        @if (fieldRequired)
+        {
+            <span class="form-field__required" aria-label="obligatorio">*</span>
+        }
+    </label>
+
+    <input 
+        class="form-field__input form-control" 
+        id="@fieldId" 
+        name="@fieldName" 
+        type="@fieldType"
+        value="@fieldValue"
+        placeholder="@fieldPlaceholder"
+        aria-describedby="@string.Join(" ", describedBy)"
+        aria-invalid="@(hasError ? "true" : "false")"
+        @(fieldRequired ? Html.Raw("required") : null) />
+
+    @if (!string.IsNullOrEmpty(fieldHelp))
+    {
+        <span class="form-field__help" id="@fieldId-help">@fieldHelp</span>
+    }
+
+    @if (hasError)
+    {
+        <span class="form-field__error" id="@fieldId-error" role="alert">@fieldError</span>
+    }
+</div>

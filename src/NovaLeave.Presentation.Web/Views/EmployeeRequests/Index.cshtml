@@ -1,0 +1,95 @@
+@*
+   Employee Request History + Balance
+   spec_003 §3.2 - BalanceCard, desktop table + mobile cards, StatusBadge, PaginationControl, EmptyState
+   Model: RequestListViewModel (T511)
+*@
+@model NovaLeave.Presentation.Web.ViewModels.RequestListViewModel
+@{
+    ViewData["Title"] = "Mis Solicitudes";
+
+    ViewData["CurrentPage"] = Model.PageNumber;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["PageUrlTemplate"] = "/EmployeeRequests?page={page}";
+
+    ViewData["EmptyTitle"] = "Aún no tienes solicitudes";
+    ViewData["EmptyDescription"] = "Crea tu primera solicitud de vacaciones para comenzar.";
+    ViewData["EmptyActionText"] = "Crear Solicitud";
+    ViewData["EmptyActionUrl"] = Url.Action("Create");
+    ViewData["EmptyIcon"] = "🏖️";
+}
+
+<div class="dashboard container mt-4">
+    <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 100px;">
+        <h1 class="mb-0">Mis Solicitudes de Vacaciones</h1>
+        <a asp-action="Create" class="btn btn--primary">+ Nueva solicitud</a>
+    </div>
+
+    @{
+        ViewData["AvailableDays"] = Model.CurrentBalance;
+        ViewData["ReservedDays"] = 0;
+    }
+    @await Html.PartialAsync("Components/_BalanceCard")
+
+    <!-- 100px spacing before requests table -->
+    <div style="margin-top: 100px;">
+    @if (Model.Requests.Any())
+    {
+        <!-- Desktop/Tablet: Table (>= 768px per spec_002) -->
+        <div class="table-responsive request-table-wrap request-table-wrap--desktop d-none d-md-block" role="region" aria-label="Tabla de mis solicitudes de vacaciones">
+            <table class="request-table request-table--desktop">
+                <thead>
+                    <tr>
+                        <th>Fechas</th>
+                        <th>Días</th>
+                        <th>Enviado</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in Model.Requests)
+                    {
+                        <tr>
+                            <td>@req.StartDate.ToString("dd-MM-yyyy") – @req.EndDate.ToString("dd-MM-yyyy")</td>
+                            <td><strong>@req.RequestedDays</strong></td>
+                            <td>@req.CreatedAt.ToString("dd-MM-yyyy")</td>
+                            <td><partial name="Components/_StatusBadge" model="req.Status" /></td>
+                            <td>
+                                <a asp-action="Detail" asp-route-id="@req.Id" class="btn btn-sm btn--secondary">Ver</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile: RequestCard list (< 768px per spec_002) -->
+        <div class="request-list request-list--mobile d-md-none">
+            @foreach (var req in Model.Requests)
+            {
+                <div class="request-card card mb-3 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">
+                                @req.StartDate.ToString("dd-MM-yyyy") – @req.EndDate.ToString("dd-MM-yyyy")
+                            </h6>
+                            <partial name="Components/_StatusBadge" model="req.Status" />
+                        </div>
+                        <p class="mb-1"><strong>@req.RequestedDays</strong> días laborables</p>
+                        <p class="text-muted small mb-2"><strong>Enviada:</strong> @req.CreatedAt.ToString("dd-MM-yyyy HH:mm")</p>
+                        <a asp-action="Detail" asp-route-id="@req.Id" class="btn btn-sm btn--primary">Ver Detalle</a>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination (spec_003 §1.4, only when > 1 page) -->
+        @await Html.PartialAsync("Components/_Pagination")
+    }
+    else
+    {
+        <!-- EmptyState (spec_003 §1.8) -->
+        @await Html.PartialAsync("Components/_EmptyState")
+    }
+    </div> <!-- Close spacing wrapper -->
+</div>

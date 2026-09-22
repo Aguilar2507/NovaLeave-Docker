@@ -1,0 +1,43 @@
+@* 
+   Pagination Control Component
+   spec_003 §1.4 - Server-side pagination with 44x44px touch targets
+
+   Parameters (via ViewData):
+   - CurrentPage: int
+   - TotalPages: int
+   - PageUrlTemplate: string with {page} placeholder, e.g., "/Requests?page={page}"
+*@
+@{
+    var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+    var totalPages = (int)(ViewData["TotalPages"] ?? 1);
+    var pageUrlTemplate = ViewData["PageUrlTemplate"]?.ToString() ?? "?page={page}";
+
+    var prevUrl = currentPage > 1 ? pageUrlTemplate.Replace("{page}", (currentPage - 1).ToString()) : "#";
+    var nextUrl = currentPage < totalPages ? pageUrlTemplate.Replace("{page}", (currentPage + 1).ToString()) : "#";
+
+    var isPrevDisabled = currentPage <= 1;
+    var isNextDisabled = currentPage >= totalPages;
+}
+
+@if (totalPages > 1)
+{
+    <nav class="pagination" aria-label="Navegación de páginas">
+        <a class="pagination__link pagination__link--prev @(isPrevDisabled ? "pagination__link--disabled" : "")" 
+           href="@prevUrl" 
+           aria-label="Página anterior"
+           @(isPrevDisabled ? Html.Raw("aria-disabled=\"true\" tabindex=\"-1\"") : null)>
+            ‹
+        </a>
+
+        <span class="pagination__current" aria-current="page">
+            @currentPage de @totalPages
+        </span>
+
+        <a class="pagination__link pagination__link--next @(isNextDisabled ? "pagination__link--disabled" : "")" 
+           href="@nextUrl" 
+           aria-label="Página siguiente"
+           @(isNextDisabled ? Html.Raw("aria-disabled=\"true\" tabindex=\"-1\"") : null)>
+            ›
+        </a>
+    </nav>
+}

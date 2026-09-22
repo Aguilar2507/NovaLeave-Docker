@@ -1,0 +1,35 @@
+@* 
+   Empty State Component
+   spec_003 §1.8 - Message for empty lists with explanation and next action
+
+   Parameters (via ViewData):
+   - EmptyTitle: string
+   - EmptyDescription: string 
+   - EmptyActionText: string (optional)
+   - EmptyActionUrl: string (optional)
+   - EmptyIcon: string (optional)
+*@
+@{
+    var emptyTitle = ViewData["EmptyTitle"]?.ToString() ?? "No hay elementos";
+    var emptyDescription = ViewData["EmptyDescription"]?.ToString() ?? "No se encontraron resultados.";
+    var emptyActionText = ViewData["EmptyActionText"]?.ToString();
+    var emptyActionUrl = ViewData["EmptyActionUrl"]?.ToString();
+    var emptyIcon = ViewData["EmptyIcon"]?.ToString() ?? "📭";
+}
+
+<div class="empty-state" style="text-align: center; padding: var(--spacing-8) var(--spacing-4);">
+    <span style="font-size: 64px; display: block; margin-bottom: var(--spacing-4);" aria-hidden="true">@emptyIcon</span>
+
+    <h3 style="font-size: var(--font-size-h2); font-weight: var(--font-weight-semibold); color: var(--color-dark-gray); margin-bottom: var(--spacing-3);">
+        @emptyTitle
+    </h3>
+
+    <p style="color: var(--color-text-gray); font-size: var(--font-size-body); margin-bottom: var(--spacing-5); max-width: 400px; margin-left: auto; margin-right: auto;">
+        @emptyDescription
+    </p>
+
+    @if (!string.IsNullOrEmpty(emptyActionText) && !string.IsNullOrEmpty(emptyActionUrl))
+    {
+        <a href="@emptyActionUrl" class="btn btn--primary">@emptyActionText</a>
+    }
+</div>

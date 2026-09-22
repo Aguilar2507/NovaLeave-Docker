@@ -1,0 +1,53 @@
+@* 
+   Request Card Component
+   spec_003 §1.7 - Mobile card for vacation request list items
+
+   Parameters (via ViewData):
+   - RequestId: Guid
+   - StartDate: DateOnly
+   - EndDate: DateOnly
+   - RequestedDays: int
+   - Status: RequestStatus
+   - Reason: string
+   - CanCancel: bool (optional)
+   - CanVoid: bool (optional)
+*@
+@{
+    var requestId = ViewData["RequestId"]?.ToString() ?? Guid.Empty.ToString();
+    var startDate = (DateOnly)(ViewData["StartDate"] ?? DateOnly.MinValue);
+    var endDate = (DateOnly)(ViewData["EndDate"] ?? DateOnly.MinValue);
+    var requestedDays = (int)(ViewData["RequestedDays"] ?? 0);
+    var status = (NovaLeave.Domain.Entities.RequestStatus)(ViewData["Status"] ?? NovaLeave.Domain.Entities.RequestStatus.Pending);
+    var reason = ViewData["Reason"]?.ToString() ?? "";
+    var canCancel = (bool)(ViewData["CanCancel"] ?? false);
+    var canVoid = (bool)(ViewData["CanVoid"] ?? false);
+}
+
+<div class="request-card card d-mobile-only" style="margin-bottom: var(--spacing-4);">
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--spacing-3);">
+        <div>
+            <strong style="font-size: var(--font-size-h3); display: block;">@startDate.ToString("dd/MM/yyyy") - @endDate.ToString("dd/MM/yyyy")</strong>
+            <span style="color: var(--color-text-gray); font-size: var(--font-size-small);">@requestedDays días</span>
+        </div>
+        <partial name="Components/_StatusBadge" model="status" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(reason))
+    {
+        <p style="color: var(--color-text-gray); margin-bottom: var(--spacing-3);">@reason</p>
+    }
+
+    @if (canCancel || canVoid)
+    {
+        <div style="display: flex; gap: var(--spacing-2); margin-top: var(--spacing-4);">
+            @if (canCancel)
+            {
+                <button type="button" class="btn btn--secondary btn-sm" data-action="cancel" data-request-id="@requestId">Cancelar</button>
+            }
+            @if (canVoid)
+            {
+                <button type="button" class="btn btn--danger btn-sm" data-action="void" data-request-id="@requestId">Anular</button>
+            }
+        </div>
+    }
+</div>

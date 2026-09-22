@@ -1,0 +1,131 @@
+@model NovaLeave.Presentation.Web.ViewModels.RequestDetailViewModel
+@{
+    ViewData["Title"] = "Detalle de Solicitud";
+}
+
+<div class="container mt-4">
+    <h2>Detalle de Solicitud</h2>
+
+    <div class="card">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Empleado:</dt>
+                <dd class="col-sm-9">@Model.EmployeeName</dd>
+
+                <dt class="col-sm-3">Email:</dt>
+                <dd class="col-sm-9">@Model.EmployeeEmail</dd>
+
+                <dt class="col-sm-3">Fecha Inicio:</dt>
+                <dd class="col-sm-9">@Model.StartDate.ToString("dd-MM-yyyy")</dd>
+
+                <dt class="col-sm-3">Fecha Fin:</dt>
+                <dd class="col-sm-9">@Model.EndDate.ToString("dd-MM-yyyy")</dd>
+
+                <dt class="col-sm-3">Días Solicitados:</dt>
+                <dd class="col-sm-9">@Model.RequestedDays</dd>
+
+                <dt class="col-sm-3">Balance Actual:</dt>
+                <dd class="col-sm-9">@Model.EmployeeCurrentBalance días</dd>
+
+                <dt class="col-sm-3">Motivo:</dt>
+                <dd class="col-sm-9">@Model.Reason</dd>
+
+                <dt class="col-sm-3">Fecha de Creación:</dt>
+                <dd class="col-sm-9">@Model.CreatedAt.ToString("dd-MM-yyyy HH:mm")</dd>
+
+                <dt class="col-sm-3">Vencimiento:</dt>
+                <dd class="col-sm-9">
+                    @{
+                        var daysUntilExpiry = (Model.ExpiryDate.DayNumber - DateOnly.FromDateTime(DateTime.Now).DayNumber);
+                        var urgencyClass = daysUntilExpiry <= 1 ? "text-danger fw-bold" : daysUntilExpiry <= 3 ? "text-warning" : "";
+                    }
+                    <span class="@urgencyClass">@Model.ExpiryDate.ToString("dd-MM-yyyy")</span>
+                </dd>
+
+                <dt class="col-sm-3">Estado:</dt>
+                <dd class="col-sm-9">
+                    <span class="badge badge--pending">@Model.Status</span>
+                </dd>
+
+                @if (Model.ResolvedAt.HasValue)
+                {
+                    <dt class="col-sm-3">Resuelta:</dt>
+                    <dd class="col-sm-9">@Model.ResolvedAt.Value.ToString("dd-MM-yyyy HH:mm")</dd>
+                }
+
+                @if (!string.IsNullOrEmpty(Model.ResolvedByFullName))
+                {
+                    <dt class="col-sm-3">Resuelta por:</dt>
+                    <dd class="col-sm-9">@Model.ResolvedByFullName</dd>
+                }
+
+                @if (!string.IsNullOrEmpty(Model.RejectionReason))
+                {
+                    <dt class="col-sm-3">Motivo de Rechazo:</dt>
+                    <dd class="col-sm-9">@Model.RejectionReason</dd>
+                }
+            </dl>
+
+            <div class="mt-4 d-flex gap-3">
+                @if (Model.Status == NovaLeave.Domain.Entities.RequestStatus.Pending)
+                {
+                    <button type="button" class="btn btn-success flex-fill" data-bs-toggle="modal" data-bs-target="#approveModal">
+                        Aprobar
+                    </button>
+                    <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        Rechazar
+                    </button>
+                }
+                <a asp-action="Index" class="btn btn-secondary flex-fill">Volver</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Confirmation Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="approveModalLabel">Confirmar Aprobación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Está seguro que desea aprobar esta solicitud de vacaciones?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form asp-action="Approve" asp-route-id="@Model.Id" method="post" style="display: inline;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-success">Confirmar Aprobación</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Confirmation Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="Reject" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabel">Rechazar Solicitud</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="rejectionReason" class="form-label">Motivo del Rechazo <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rejectionReason" name="RejectionReason" rows="4" required maxlength="500"></textarea>
+                        <div class="form-text">Máximo 500 caracteres.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

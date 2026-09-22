@@ -1,0 +1,27 @@
+@* 
+   Balance Card Component
+   spec_003 §1.6 - Employee vacation balance display
+
+   Parameters (via ViewData):
+   - AvailableDays: int
+   - ReservedDays: int
+*@
+@{
+    var availableDays = (int)(ViewData["AvailableDays"] ?? 0);
+    var reservedDays = (int)(ViewData["ReservedDays"] ?? 0);
+}
+
+<div class="balance-card card" aria-label="Saldo de vacaciones disponible">
+    <span class="balance-card__value">
+        @availableDays
+    </span>
+    <span class="balance-card__label">
+        días disponibles
+    </span>
+    @if (reservedDays > 0)
+    {
+        <span class="balance-card__reserved">
+            @reservedDays reservados (Pendiente)
+        </span>
+    }
+</div>

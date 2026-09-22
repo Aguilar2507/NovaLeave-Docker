@@ -1,0 +1,27 @@
+@* 
+   Alert Message Component
+   spec_003 §1.2 - Success/warning/error/info alerts with auto-dismiss and Escape-key support
+
+   Parameters (via ViewData):
+   - AlertType: "success", "warning", "error", "info"
+   - AlertMessage: string message text
+   - AlertIcon: optional icon character
+*@
+@{
+    var alertType = ViewData["AlertType"]?.ToString() ?? "info";
+    var alertMessage = ViewData["AlertMessage"]?.ToString() ?? "";
+    var alertIcon = ViewData["AlertIcon"]?.ToString() ?? (alertType switch
+    {
+        "success" => "✓",
+        "warning" => "⚠",
+        "error" => "⚠",
+        "info" => "ℹ",
+        _ => "ℹ"
+    });
+}
+
+<div class="alert alert--@alertType" role="alert" aria-live="@(alertType == "error" ? "assertive" : "polite")">
+    <span class="alert__icon" aria-hidden="true">@alertIcon</span>
+    <span class="alert__text">@alertMessage</span>
+    <button type="button" class="alert__dismiss" aria-label="Cerrar">×</button>
+</div>

@@ -1,0 +1,195 @@
+@model NovaLeave.Presentation.Web.ViewComponents.RoleSwitcherViewModel
+
+@{
+    var activeRole = Model.GetActiveRole();
+    var activeRoleLabel = Model.GetRoleLabel(activeRole);
+    var activeRoleIcon = Model.GetRoleIcon(activeRole);
+}
+
+<div class="role-switcher" data-component="role-switcher">
+    <button type="button" 
+            class="role-switcher__trigger"
+            id="roleSwitcherTrigger"
+            aria-haspopup="listbox" 
+            aria-expanded="false"
+            aria-label="Cambiar rol activo">
+        <span class="role-switcher__icon">@activeRoleIcon</span>
+        <span class="role-switcher__label">
+            <small class="text-muted">Viendo como:</small>
+            <strong>@activeRoleLabel</strong>
+        </span>
+        <span class="role-switcher__arrow" aria-hidden="true">▼</span>
+    </button>
+
+    <div class="role-switcher__menu" 
+         id="roleSwitcherMenu"
+         role="listbox"
+         aria-labelledby="roleSwitcherTrigger"
+         hidden>
+        @foreach (var role in Model.AvailableRoles)
+        {
+            var roleLabel = Model.GetRoleLabel(role);
+            var roleIcon = Model.GetRoleIcon(role);
+            var roleDashboard = Model.GetRoleDashboard(role);
+            var isActive = role == activeRole;
+
+            <button type="button"
+                    class="role-switcher__option @(isActive ? "role-switcher__option--active" : "")"
+                    role="option"
+                    aria-selected="@(isActive ? "true" : "false")"
+                    data-role="@role"
+                    data-dashboard="@roleDashboard">
+                <span class="role-switcher__option-icon">@roleIcon</span>
+                <span class="role-switcher__option-label">@roleLabel</span>
+                @if (isActive)
+                {
+                    <span class="role-switcher__option-check" aria-hidden="true">✓</span>
+                }
+            </button>
+        }
+    </div>
+</div>
+
+<script>
+    // Role Switcher JavaScript (CU-202)
+    // Script inline para que funcione desde ViewComponent
+    (function() {
+        const trigger = document.getElementById('roleSwitcherTrigger');
+        const menu = document.getElementById('roleSwitcherMenu');
+
+        if (!trigger || !menu) return;
+
+        // Toggle menu visibility
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+            trigger.setAttribute('aria-expanded', !isExpanded);
+            menu.hidden = isExpanded;
+        });
+
+        // Handle role selection
+        menu.querySelectorAll('.role-switcher__option').forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.preventDefault();
+                const dashboard = this.getAttribute('data-dashboard');
+                if (dashboard) {
+                    window.location.href = dashboard;
+                }
+            });
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!trigger.contains(e.target) && !menu.contains(e.target)) {
+                trigger.setAttribute('aria-expanded', 'false');
+                menu.hidden = true;
+            }
+        });
+
+        // Close menu on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && trigger.getAttribute('aria-expanded') === 'true') {
+                trigger.setAttribute('aria-expanded', 'false');
+                menu.hidden = true;
+                trigger.focus();
+            }
+        });
+    })();
+</script>
+
+<style>
+    .role-switcher {
+        position: relative;
+        padding: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .role-switcher__trigger {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .role-switcher__trigger:hover {
+        background: #f8f9fa;
+        border-color: #0d6efd;
+    }
+
+    .role-switcher__icon {
+        font-size: 1.25rem;
+    }
+
+    .role-switcher__label {
+        flex: 1;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+
+    .role-switcher__arrow {
+        font-size: 0.75rem;
+        color: #6c757d;
+        transition: transform 0.2s;
+    }
+
+    .role-switcher__trigger[aria-expanded="true"] .role-switcher__arrow {
+        transform: rotate(180deg);
+    }
+
+    .role-switcher__menu {
+        position: absolute;
+        bottom: 100%;
+        left: 1rem;
+        right: 1rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+        z-index: 1000;
+    }
+
+    .role-switcher__option {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: none;
+        background: white;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .role-switcher__option:hover {
+        background: #f8f9fa;
+    }
+
+    .role-switcher__option--active {
+        background: #e7f3ff;
+        font-weight: 600;
+    }
+
+    .role-switcher__option-icon {
+        font-size: 1.25rem;
+    }
+
+    .role-switcher__option-label {
+        flex: 1;
+    }
+
+    .role-switcher__option-check {
+        color: #0d6efd;
+        font-size: 1rem;
+    }
+</style>

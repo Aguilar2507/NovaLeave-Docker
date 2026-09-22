@@ -1,0 +1,310 @@
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<NovaLeave.Infrastructure.Identity.ApplicationUser> SignInManager
+@inject UserManager<NovaLeave.Infrastructure.Identity.ApplicationUser> UserManager
+
+@{
+    var user = await UserManager.GetUserAsync(User);
+    var isAuthenticated = SignInManager.IsSignedIn(User);
+    var isApprover = User.IsInRole("Approver");
+    var isUser = User.IsInRole("User");
+
+    // Determinar el rol activo basado en la ruta actual
+    var currentPath = Context.Request.Path.ToString();
+    var isViewingAsApprover = currentPath.StartsWith("/Approver", StringComparison.OrdinalIgnoreCase) ||
+                              currentPath.StartsWith("/ApproverRequests", StringComparison.OrdinalIgnoreCase) ||
+                              currentPath.StartsWith("/approver/requests", StringComparison.OrdinalIgnoreCase);
+    var isViewingAsEmployee = currentPath.StartsWith("/Employee", StringComparison.OrdinalIgnoreCase) ||
+                              currentPath.StartsWith("/EmployeeRequests", StringComparison.OrdinalIgnoreCase);
+
+    // Si no se puede determinar por la ruta, usar el rol del usuario
+    // Preferir Employee como vista por defecto si tiene ambos roles
+    if (!isViewingAsApprover && !isViewingAsEmployee && isUser)
+    {
+        isViewingAsEmployee = true;
+    }
+    else if (!isViewingAsApprover && !isViewingAsEmployee && isApprover)
+    {
+        isViewingAsApprover = true;
+    }
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - NovaLeave</title>
+
+    <!-- Local Bootstrap 5.3.3 CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+
+    <!-- Design System Tokens -->
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
+
+    <!-- Site Styles -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    @await RenderSectionAsync("Styles", required: false)
+
+    <style>
+    /* Layout Structure (mobile-first) */
+    .layout {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .sidebar {
+        background-color: var(--color-azul-profundo-novacomp);
+        color: var(--color-white);
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        z-index: var(--z-index-sticky);
+    }
+
+    .sidebar__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar__brand {
+        margin: 0;
+        font-size: var(--font-size-h2);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-white);
+    }
+
+    .sidebar__toggle {
+        background: transparent;
+        border: none;
+        color: var(--color-white);
+        padding: var(--spacing-2);
+        cursor: pointer;
+        display: block;
+    }
+
+    .sidebar__nav {
+        display: none;
+    }
+
+    .sidebar--open .sidebar__nav {
+        display: block;
+    }
+
+    .sidebar__menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .sidebar__menu-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar__link {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-3);
+        padding: var(--spacing-4);
+        color: var(--color-white);
+        text-decoration: none;
+        transition: background-color var(--motion-duration-fast) var(--motion-easing-ease-out);
+    }
+
+    .sidebar__link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--color-white);
+    }
+
+    .sidebar__link-icon {
+        font-size: var(--font-size-h3);
+    }
+
+    .sidebar__link-text {
+        font-size: var(--font-size-body);
+    }
+
+    .sidebar__footer {
+        margin-top: auto;
+        padding: var(--spacing-4);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: none;
+    }
+
+    .sidebar--open .sidebar__footer {
+        display: block;
+    }
+
+    .sidebar__user {
+        margin-bottom: var(--spacing-3);
+    }
+
+    .sidebar__user-name {
+        font-size: var(--font-size-small);
+        opacity: 0.8;
+    }
+
+    .main-content {
+        flex: 1;
+        padding: var(--spacing-4);
+        background-color: var(--color-light-gray);
+    }
+
+    .content-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    /* Desktop Layout (spec_002 breakpoint: 768px) */
+    @@media (min-width: 768px) {
+        .layout {
+            flex-direction: row;
+        }
+
+        .sidebar {
+            width: 280px;
+            min-height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .sidebar__toggle {
+            display: none;
+        }
+
+        .sidebar__nav {
+            display: block;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar__footer {
+            display: block;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: var(--spacing-6);
+        }
+    }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar Navigation (spec_003 §2) -->
+        <aside class="sidebar" aria-label="Navegación principal" aria-expanded="false">
+            <div class="sidebar__header">
+                <h2 class="sidebar__brand">NovaLeave</h2>
+                <button type="button" class="sidebar__toggle" data-nav-toggle aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+
+            <nav class="sidebar__nav">
+                <ul class="sidebar__menu">
+                    @if (isViewingAsEmployee && isUser)
+                    {
+                        <li class="sidebar__menu-item">
+                            <a class="sidebar__link" href="/Employee/Dashboard" aria-label="Panel de Control">
+                                <span class="sidebar__link-icon">▪</span>
+                                <span class="sidebar__link-text">Mi Panel</span>
+                            </a>
+                        </li>
+                        <li class="sidebar__menu-item">
+                            <a class="sidebar__link" href="/EmployeeRequests/Create" aria-label="Solicitar Vacaciones">
+                                <span class="sidebar__link-icon">+</span>
+                                <span class="sidebar__link-text">Solicitar Vacaciones</span>
+                            </a>
+                        </li>
+                        <li class="sidebar__menu-item">
+                            <a class="sidebar__link" href="/EmployeeRequests/Index" aria-label="Mis Solicitudes">
+                                <span class="sidebar__link-icon">≡</span>
+                                <span class="sidebar__link-text">Mis Solicitudes</span>
+                            </a>
+                        </li>
+                    }
+
+                    @if (isViewingAsApprover && isApprover)
+                    {
+                        <li class="sidebar__menu-item">
+                            <a class="sidebar__link" href="/Approver/Dashboard" aria-label="Aprobaciones Pendientes">
+                                <span class="sidebar__link-icon">✓</span>
+                                <span class="sidebar__link-text">Aprobaciones pendientes</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+
+            <div class="sidebar__footer">
+                @if (isAuthenticated)
+                {
+                    @* Role Switcher - solo visible para usuarios con múltiples roles (CU-202) *@
+                    @await Component.InvokeAsync("RoleSwitcher")
+
+                    <div class="sidebar__user">
+                        <span class="sidebar__user-name">@User.Identity?.Name</span>
+                    </div>
+                    <partial name="_LogoutButton" />
+                }
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="alert alert--success" role="alert" aria-live="polite">
+                        <span class="alert__icon" aria-hidden="true">✓</span>
+                        <span class="alert__text">@TempData["SuccessMessage"]</span>
+                        <button type="button" class="alert__dismiss" aria-label="Cerrar">×</button>
+                    </div>
+                }
+
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="alert alert--error" role="alert" aria-live="assertive">
+                        <span class="alert__icon" aria-hidden="true">⚠</span>
+                        <span class="alert__text">@TempData["ErrorMessage"]</span>
+                        <button type="button" class="alert__dismiss" aria-label="Cerrar">×</button>
+                    </div>
+                }
+
+                @if (TempData["WarningMessage"] != null)
+                {
+                    <div class="alert alert--warning" role="alert" aria-live="polite">
+                        <span class="alert__icon" aria-hidden="true">⚠</span>
+                        <span class="alert__text">@TempData["WarningMessage"]</span>
+                        <button type="button" class="alert__dismiss" aria-label="Cerrar">×</button>
+                    </div>
+                }
+
+                @if (TempData["InfoMessage"] != null)
+                {
+                    <div class="alert alert--info" role="alert" aria-live="polite">
+                        <span class="alert__icon" aria-hidden="true">ℹ</span>
+                        <span class="alert__text">@TempData["InfoMessage"]</span>
+                        <button type="button" class="alert__dismiss" aria-label="Cerrar">×</button>
+                    </div>
+                }
+
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+
+    <!-- Local Bootstrap 5.3.3 JS Bundle -->
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Shared Interactive Behaviors -->
+    <script src="~/js/shared.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

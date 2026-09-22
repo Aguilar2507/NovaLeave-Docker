@@ -1,0 +1,83 @@
+@model IReadOnlyList<NovaLeave.Domain.Entities.VacationRequest>
+@{
+    ViewData["Title"] = "Solicitudes Pendientes";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Cola de Aprobación</h2>
+        <a asp-action="History" class="btn btn--secondary">Ver Historial</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert--success" role="alert" aria-live="polite">
+            <span class="alert__icon" aria-hidden="true"><i class="fas fa-check-circle"></i></span>
+            <span class="alert__text">@TempData["SuccessMessage"]</span>
+            <button type="button" class="alert__dismiss" aria-label="Cerrar" onclick="this.parentElement.remove()">×</button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center" style="padding: var(--spacing-6);">
+                <i class="fas fa-clipboard-check" style="font-size: 64px; color: var(--color-success); margin-bottom: var(--spacing-4);"></i>
+                <h3>No hay solicitudes pendientes</h3>
+                <p class="text-muted">Todas las solicitudes han sido procesadas</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="request-table">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Fecha Inicio</th>
+                        <th>Fecha Fin</th>
+                        <th>Días</th>
+                        <th>Vencimiento</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model)
+                    {
+                        var daysUntilExpiry = (request.ExpiryDate.DayNumber - DateOnly.FromDateTime(DateTime.Now).DayNumber);
+                        var isUrgent = daysUntilExpiry <= 2;
+
+                        <tr style="@(isUrgent ? "background-color: #FFF3CD;" : "")">
+                            <td><strong>@request.Owner.Name</strong></td>
+                            <td>@request.StartDate.ToString("d MMM yyyy")</td>
+                            <td>@request.EndDate.ToString("d MMM yyyy")</td>
+                            <td><strong>@request.RequestedDays</strong></td>
+                            <td>
+                                @if (daysUntilExpiry == 0)
+                                {
+                                    <span class="badge" style="background-color: #DC3545; color: white;">Hoy</span>
+                                }
+                                else if (daysUntilExpiry == 1)
+                                {
+                                    <span class="badge" style="background-color: #FFC107; color: #856404;">Mañana</span>
+                                }
+                                else if (daysUntilExpiry <= 3)
+                                {
+                                    <span class="badge" style="background-color: #FFC107; color: #856404;">@daysUntilExpiry días</span>
+                                }
+                                else
+                                {
+                                    <span>@request.ExpiryDate.ToString("d MMM yyyy")</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Detail" asp-route-id="@request.Id" class="btn btn-sm btn--primary">Ver Detalle</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

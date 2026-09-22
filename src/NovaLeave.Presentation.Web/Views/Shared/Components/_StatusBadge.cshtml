@@ -1,0 +1,30 @@
+@*
+   Status Badge Component
+   spec_003 §1.1 - Renders the workflow state with semantic colors and readable text
+   Model: NovaLeave.Domain.Entities.RequestStatus
+*@
+@model NovaLeave.Domain.Entities.RequestStatus
+@{
+    var status = Model;
+    var statusText = status switch
+    {
+        NovaLeave.Domain.Entities.RequestStatus.Pending => "Pendiente",
+        NovaLeave.Domain.Entities.RequestStatus.Approved => "Aprobada",
+        NovaLeave.Domain.Entities.RequestStatus.Rejected => "Rechazada",
+        NovaLeave.Domain.Entities.RequestStatus.Cancelled => "Cancelada",
+        NovaLeave.Domain.Entities.RequestStatus.Voided => "Anulada",
+        NovaLeave.Domain.Entities.RequestStatus.Expired => "Expirada",
+        _ => status.ToString()
+    };
+    var badgeClass = status switch
+    {
+        NovaLeave.Domain.Entities.RequestStatus.Pending => "badge--pending",
+        NovaLeave.Domain.Entities.RequestStatus.Approved => "badge--approved",
+        NovaLeave.Domain.Entities.RequestStatus.Rejected => "badge--rejected",
+        NovaLeave.Domain.Entities.RequestStatus.Cancelled => "badge--cancelled",
+        NovaLeave.Domain.Entities.RequestStatus.Voided => "badge--voided",
+        NovaLeave.Domain.Entities.RequestStatus.Expired => "badge--expired",
+        _ => ""
+    };
+}
+<span class="badge @badgeClass" aria-label="Estado: @statusText">@statusText</span>

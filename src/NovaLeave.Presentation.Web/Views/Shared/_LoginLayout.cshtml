@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - NovaLeave</title>
+
+    <!-- Local Bootstrap 5.3.3 CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+
+    <!-- Design System Tokens -->
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
+
+    <!-- Site Styles -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    <!-- Login-specific styles - MOVED TO HEAD to prevent FOUC -->
+    <style>
+    /* Login-specific styles using design system tokens (spec_002) */
+    .login-body {
+        /* Use spec_002 Azul Novacomp gradient instead of purple */
+        background: linear-gradient(135deg, var(--color-azul-profundo-novacomp) 0%, var(--color-azul-corporativo) 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .login-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-4);
+    }
+
+    .login-card {
+        background: var(--color-white);
+        border-radius: var(--border-radius-xl);
+        box-shadow: var(--shadow-xl);
+        padding: var(--spacing-6);
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: var(--spacing-5);
+    }
+
+    .login-header h1 {
+        color: var(--color-dark-gray);
+        font-size: var(--font-size-h1);
+        font-weight: var(--font-weight-semibold);
+        margin-bottom: var(--spacing-2);
+    }
+
+    .login-header p {
+        color: var(--color-text-gray);
+        font-size: var(--font-size-body);
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: var(--spacing-3);
+        font-weight: var(--font-weight-semibold);
+        min-height: var(--touch-target-min);
+        transition: transform var(--motion-duration-fast) var(--motion-easing-ease-out);
+    }
+
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .login-footer {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--color-white);
+        text-align: center;
+        padding: var(--spacing-4);
+        margin-top: auto;
+    }
+
+    .login-footer a {
+        color: var(--color-white);
+        text-decoration: none;
+    }
+
+    .login-footer a:hover {
+        text-decoration: underline;
+    }
+
+    .validation-summary-errors {
+        background: #f8d7da;
+        border: 1px solid #f5c2c7;
+        border-radius: var(--border-radius-sm);
+        padding: var(--spacing-3);
+        margin-bottom: var(--spacing-4);
+    }
+
+    .validation-summary-errors ul {
+        margin: 0;
+        padding-left: var(--spacing-5);
+    }
+
+    .validation-summary-errors li {
+        color: #842029;
+    }
+
+    /* Mobile responsive adjustments (spec_002 breakpoints) */
+    @@media (max-width: 575px) {
+        .login-card {
+            padding: var(--spacing-5);
+        }
+
+        .login-header h1 {
+            font-size: var(--font-size-h2);
+        }
+    }
+    </style>
+</head>
+<body class="login-body">
+    <div class="login-container">
+        @RenderBody()
+    </div>
+
+    <footer class="login-footer">
+        <p>&copy; @DateTime.Now.Year - NovaLeave - Sistema de Gestión de Vacaciones</p>
+    </footer>
+
+    <!-- Local Bootstrap 5.3.3 JS Bundle -->
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+
