@@ -5,7 +5,7 @@
 **Scope:** Point-by-point revalidation of all 23 findings listed in `docs/Keep-in-mind.md` against the current source tree, tests, configuration, and available test execution.  
 **Status:** Analysis only; no implementation performed.
 
-This revision treats `Keep-in-mind.md` as the baseline rather than as current evidence. It distinguishes resolved work, partial progress, decisions that remain intentionally open, and findings that still reproduce. The presentation test suite was executed with the .NET 10 SDK; it still fails and reproduces the shared InMemory database and obsolete-role problems. A separate business defect was also found while reviewing the request lifecycle: approval deducts days after creation has already reserved them. It is recorded under point 2 because it affects the same request-lifecycle and balance invariant.
+This revision treats `Keep-in-mind.md` as the baseline rather than as current evidence. It distinguishes resolved work, partial progress, decisions that remain intentionally open, and findings that still reproduce. The presentation test suite was executed with the .NET 10 SDK; it still fails and reproduces the shared InMemory database and obsolete-role problems. A separate business defect was also found while reviewing the request lifecycle: approval deducts days after creation has already reserved them. It is recorded under point 2 because it affects the same request-lifecycle and balance invariant. The optional Docker agent teams introduced by `spec_010` are also assessed under point 2 as development tooling and operational risk, not as application business functionality.
 
 > This document analyzes the documented issues individually. It does not modify the application, implement fixes, or assume that every unchecked task is still missing. Some findings may be stale and require confirmation against the current source tree.
 
@@ -174,13 +174,19 @@ This revision treats `Keep-in-mind.md` as the baseline rather than as current ev
     - [23.4 Necessity](#234-necessity)
     - [23.5 Conclusion](#235-conclusion)
     - [23.6 Proposed Solution](#236-proposed-solution)
+  - [Planning and Traceability Context](#planning-and-traceability-context)
+    - [Product Owner Open Questions](#product-owner-open-questions)
+    - [Recommended Work Order](#recommended-work-order)
+    - [Scope and Checkbox Caveat](#scope-and-checkbox-caveat)
+    - [Spec 005 Change Summary](#spec-005-change-summary)
+    - [Traceability Matrix](#traceability-matrix)
   - [Overall Conclusion](#overall-conclusion)
 
 ## 1. Presentation Test Suite Is Non-Deterministic
 
 ### 1.1 Current Issue
 
-The suite remains non-deterministic and is still not an acceptance gate. A current `dotnet test` run reproduces `Sequence contains more than one element` from the shared `NovaLeaveTestDb`, `Role EMPLOYEE does not exist`, and unrelated response/assertion failures. The fixtures now have an early seed guard, but that guard does not provide isolation; the fixed database name remains shared across factories and the fixture still creates obsolete `Employee` and `Admin` roles. The current test run therefore confirms the original diagnosis rather than closing it.
+The suite remains non-deterministic and is still not an acceptance gate. `Keep-in-mind.md` recorded 24–26 failures out of 49 on a clean `main`, with counts varying between identical runs; a current `dotnet test` run reproduces `Sequence contains more than one element` from the shared `NovaLeaveTestDb`, `Role EMPLOYEE does not exist`, and unrelated response/assertion failures. The fixtures now have an early seed guard, but that guard does not provide isolation; the fixed database name remains shared across factories and the fixture still creates obsolete `Employee` and `Admin` roles. The current test run therefore confirms the original diagnosis rather than closing it. The dedicated diagnosis remains documented in `spec_006`, but no owner or implementation branch is scheduled.
 
 ### 1.2 Benefits of Resolution
 
@@ -210,7 +216,9 @@ Give each fixture an isolated database root or unique database name, seed throug
 
 The lifecycle review also found a separate balance defect in the same path: `CreateRequestHandler` calls `ReserveDays`, while `ApproveRequestHandler` calls `DeductDays`, and both methods subtract from `Employee.Balance`. A request approved after creation is therefore charged twice. This is a live business-logic issue that must be tracked with the expiry work because both affect reservation, release, and balance invariants.
 
-`Keep-in-mind.md` also records two delivered-but-incomplete operational surfaces that belong in this lifecycle/readiness assessment. Metrics are now exported to Prometheus and visualized in Grafana, but distributed tracing, alerting, retention/storage sizing, approval-duration measurement, and deployed-environment protection remain open. Prometheus is host-published without authentication. Logs are aggregated through Alloy and Loki, but Alloy requires root-level Docker-socket access for the local stack, Loki is host-published without authentication, log-based alerting is absent, retention is fixed at seven days with no size cap, and no automated check prevents Sensitive/PII request reasons from being logged. These are accepted development-stack tradeoffs where documented, not production-ready controls.
+`Keep-in-mind.md` also records two delivered-but-incomplete operational surfaces that belong in this lifecycle/readiness assessment. Metrics are now exported to Prometheus and visualized in Grafana, but distributed tracing, alerting, retention/storage sizing, approval-duration measurement, and deployed-environment protection remain open. The `novaleave_vacation_request_oldest_pending_age_seconds` signal exposes the missing expiry behavior, while `microsoft_entityframeworkcore_optimistic_concurrency_failures_total` is currently the only live signal for an invariant whose tests are skipped. Prometheus is host-published without authentication. Logs are aggregated through Alloy and Loki, but Alloy requires root-level Docker-socket access for the local stack, Loki is host-published without authentication, log-based alerting is absent, retention is fixed at seven days with no size cap, and no automated check prevents Sensitive/PII request reasons from being logged. The CLEF JSON field names also require care in LogQL: `| json` sanitizes `@l`, `@t`, and `@mt` to `_l`, `_t`, and `_mt`, while information-level lines may omit `_l`. These are accepted development-stack tradeoffs where documented, not production-ready controls.
+
+`spec_010` also delivered optional Docker agent teams for operations and development. They are not part of the application runtime, but they add a separate toolchain risk: `GAP-010-2` exposes the Docker socket through the ops agent, which is bounded only by the lack of a shell and three fixed read-only commands; `GAP-010-3` means Gemini-backed agents can transmit repository or seeded data to Google; `GAP-010-9` causes free-tier `HTTP 429` responses after a few multi-agent questions; `GAP-010-8` prevents reliable use of the local model in the sandboxed dev team; and `GAP-010-7` requires `docker/agents/dev-team.sh` because direct YAML execution is not sandboxed with the current docker-agent version. The ops team has a local Model Runner option, but the sandboxed dev path silently falls back to Gemini when given the local flavor. Agent behavior has no automated evaluation (`GAP-010-5`), prompts embed metric names and test baselines that can drift (`GAP-010-6`), and T309's permitted sandbox write and `dotnet_test` checks remain unverified. Developers also need `sbx login`, the balanced policy, and a stored Google secret; script-tool variables such as `$PWD` or `${x:-default}` can silently remove a toolset unless `docker agent debug toolsets` is run after edits. These agents must be used only with seeded/non-sensitive data and their setup prerequisites documented.
 
 ### 2.2 Benefits of Resolution
 
@@ -226,7 +234,7 @@ Pending requests may remain unresolved indefinitely, employees may lose access t
 
 ### 2.5 Conclusion
 
-The domain supports expiry, but the application does not operationalize it. The current observability work makes the missing behavior visible through queue-age metrics, but does not execute it. The same observability and logging stack is useful for local diagnosis but still has production security and retention gaps. The next analysis or implementation plan must cover configuration validation, an idempotent hosted process, atomic balance release and auditing, the approval reservation invariant, the GAP-007/GAP-009 operational controls, and integration/E2E evidence. Reference: `FR-016`, `T611`, `T612`, `T613`, `T614`, and `T647` in spec 001.
+The domain supports expiry, but the application does not operationalize it. The current observability work makes the missing behavior visible through `novaleave_vacation_request_oldest_pending_age_seconds`, but does not execute it. The PO decision recorded in `spec-pending-clarifications.md` replaced auto-escalation with auto-expiry, so this is not an optional enhancement. The same observability and logging stack is useful for local diagnosis but still has production security and retention gaps. The optional agent teams add development-only security, privacy, reproducibility, and verification concerns, but do not resolve any application finding. The next analysis or implementation plan must cover configuration validation, an idempotent hosted process, atomic balance release and auditing, the approval reservation invariant, the GAP-007/GAP-009 operational controls, the GAP-010 agent controls, and integration/E2E evidence. Reference: `FR-016`, `T611`, `T612`, `T613`, `T614`, and `T647` in spec 001.
 
 ### 2.6 Proposed Solution
 
@@ -366,7 +374,7 @@ Add one centralized response-header policy or middleware for CSP, `X-Content-Typ
 
 ### 8.1 Current Issue
 
-The two current concurrency tests remain skipped because InMemory cannot model real SQL Server transactions and row-version conflicts. `DoubleVoid_OnlyOneSucceeds` is still not covered. The SQL Server container makes these tests possible, but no evidence shows that they have been activated or run.
+The application contains concurrency defenses, including the Serializable overlap transaction and RowVersion configuration, but the two current concurrency tests remain skipped because InMemory cannot model real SQL Server transactions and row-version conflicts. `DoubleVoid_OnlyOneSucceeds` is still not covered. The SQL Server container makes these tests possible, but no evidence shows that they have been activated or run; this is a verification gap, not proof that the protection itself is absent.
 
 ### 8.2 Benefits of Resolution
 
@@ -386,7 +394,7 @@ Create a SQL Server test profile, activate the skipped tests, and add the double
 
 ### 8.6 Proposed Solution
 
-Run concurrency scenarios against SQL Server with separate contexts and coordinated tasks. Verify Serializable overlap prevention, `RowVersion` conflicts, and single-success voiding; keep InMemory tests for non-relational behavior only.
+Run concurrency scenarios against SQL Server with separate contexts and coordinated tasks. Verify Serializable overlap prevention, `RowVersion` conflicts, and single-success voiding; keep InMemory tests for non-relational behavior only. Include the metrics signal as supporting evidence, not as a substitute for these tests.
 
 ## 9. Authorization and IDOR Coverage Is Incomplete
 
@@ -418,7 +426,7 @@ Add direct HTTP tests using authenticated users with different ownership and rol
 
 ### 10.1 Current Issue
 
-The E2E project now contains a substantial role-switcher suite, including single-role denial and dual-role navigation assertions. However, the submission journey remains skipped, the tests use a hard-coded HTTPS base URL, browser installation/startup is not demonstrated in this environment, and approval, void, history, edit, expiry, and dashboard journeys remain unverified. The suite is therefore partially implemented but not an operational acceptance suite.
+The E2E project now contains a substantial role-switcher suite, including single-role denial and dual-role navigation assertions. However, the submission journey remains skipped, the tests use a hard-coded HTTPS base URL, browser installation/startup is not demonstrated in this environment, and approval, void, history, edit, expiry, and dashboard journeys remain unverified. The eight unwritten `spec_001` journeys and four `spec_004` browser acceptance checks therefore remain outside repeatable execution. The suite is partially implemented but not an operational acceptance suite.
 
 ### 10.2 Benefits of Resolution
 
@@ -704,7 +712,7 @@ Retain `ASPNETCORE_ENVIRONMENT=Development` for the local Compose workflow and s
 
 ### 21.1 Current Issue
 
-`DatabaseInitializer` still limits automatic migration to Development, and tests cover the production guard. A reviewed production migration and rollback procedure has not been defined, so the guard is correct but the deployment process remains incomplete. Multiple replicas could also attempt migrations concurrently if this boundary is ignored.
+`DatabaseInitializer` still limits automatic migration to Development, and tests cover the production guard. A reviewed production migration and rollback procedure has not been defined, so the guard is correct but the deployment process remains incomplete. Multiple replicas could also attempt migrations concurrently if this boundary is ignored. The Docker work also lacks the remaining operational evidence recorded for `spec_005`: the success criterion requires ten consecutive cold starts but only five successful starts were recorded, the quickstart was verified only by its author rather than independently, there is no production image or evidence for availability/RTO/RPO/backups, and CI does not build or test the image.
 
 ### 21.2 Benefits of Resolution
 
@@ -724,7 +732,7 @@ Preserve the Production guard and define a reviewed migration and rollback runbo
 
 ### 21.6 Proposed Solution
 
-Keep automatic startup migration limited to Development. For production, define a single-owner deployment migration step with prechecks, backup, rollback boundaries, multi-replica coordination, and post-migration verification.
+Keep automatic startup migration limited to Development. For production, define a single-owner deployment migration step with prechecks, backup, rollback boundaries, multi-replica coordination, and post-migration verification. Complete the outstanding cold-start, independent quickstart, production-image, and CI evidence before treating the Docker work as operationally complete.
 
 ## 22. Host Builds Require .NET 10 or Docker
 
@@ -778,11 +786,80 @@ Remove the redundant registration during routine maintenance and document plural
 
 Remove the duplicate `TimeProvider` registration in a routine cleanup and record the plural table convention in the architecture documentation. Avoid a database rename migration unless a future business or operational requirement justifies its risk.
 
+## Planning and Traceability Context
+
+This section preserves planning information from `Keep-in-mind.md` that does not represent a new numbered finding. It separates decisions that require product input, implementation sequencing, evidence-quality caveats, delivered Docker scope, and the source documents behind each finding.
+
+### Product Owner Open Questions
+
+The following questions remain unanswered and should be resolved before implementing dependent workflows:
+
+- **Employee deactivation (FR-028):** What happens to `Pending` and `Approved` requests when an employee is deactivated: are they auto-cancelled, or left with a note?
+- **Approver reassignment (FR-029):** When an approver changes, are pending requests re-routed to the new approver or left with the original approver?
+- **Balance recalculation on voiding:** Are there special cases when days are returned after the employee has accrued additional balance?
+- **Holiday calendar management:** Is the public holiday calendar maintained through an HR interface or a configuration file?
+- **HR read-only views (FR-009/FR-010):** Which users may see organization-wide balances, and should HR see the request `Reason`?
+
+The analysis also records three governance questions that should be confirmed alongside those product decisions: whether documentation remains English despite the Constitution's Spanish convention, whether `Employee`/`Admin` test roles are obsolete leftovers, and whether plural table names should remain an accepted documented deviation.
+
+### Recommended Work Order
+
+The following order reflects blocking dependencies and release risk rather than an implementation commitment:
+
+1. **Point 1:** Isolate and align the presentation test suite; it is the prerequisite for trustworthy regression results.
+2. **Point 2:** Implement auto-expiry and correct the approval balance transition.
+3. **Point 6:** Resolve CDN integrity through local hosting or approved SRI/CSP configuration.
+4. **Point 8:** Run concurrency tests against SQL Server and activate the skipped scenarios.
+5. **Points 3 and 4:** Complete audit immutability and user-facing audit history.
+6. **Point 7:** Add security headers after the asset/CSP decision is settled.
+7. **Planning prerequisite:** Triage the unchecked task count before treating it as a backlog.
+8. **Points 10 through 14:** Complete E2E, accessibility, performance, coverage, and rate-limit verification.
+9. **Points 15 through 17 and 23:** Resolve project structure, documentation, language, and housekeeping conventions.
+
+### Scope and Checkbox Caveat
+
+The source sweep covered the unchecked tasks in `spec_001` and `spec_004` (61 total), skipped tests, Constitution requirements, live HTTP responses, and pending clarification records. It also searched `src/` and `tests/` for `TODO`, `FIXME`, and `NotImplementedException` markers and found none. This analysis does not claim that implemented business rules match every specification acceptance scenario; a full functional review against `spec_001` has not been recorded.
+
+The 61-task count is a planning signal, not a verified backlog. Some unchecked tasks are stale even though the underlying feature exists, so each task must be confirmed against the repository before being scheduled or used to estimate remaining work.
+
+### Spec 005 Change Summary
+
+The Docker/containerization work changed infrastructure and documentation boundaries, not domain behavior:
+
+| Area | Recorded change | Analysis implication |
+|------|-----------------|----------------------|
+| `Program.cs` | Added health checks, mapped `/health`, replaced inline seeding with `DatabaseInitializer`, and registered initializer/migrator/options services | Startup and health behavior need operational verification |
+| `DevelopmentDataSeeder.cs` | Extracted `IDevelopmentDataSeeder`; no behavior change | Seed data should not be treated as a fix for the balance defect |
+| `NovaLeave.Infrastructure.csproj` | Added EF Core health-check support | Infrastructure coverage remains part of the open test strategy |
+| `.gitignore` | Added `.env` | Local secrets remain outside tracked configuration |
+| `README.md` | Replaced the placeholder with Docker setup guidance | Quickstart still needs independent verification |
+| `architecture.md` | Marked Docker and health checks as delivered | Documentation status is not equivalent to production evidence |
+
+No domain logic, authorization rule, or business behavior was changed by `spec_005`. Verification is still owed for ten consecutive cold starts (only five successful starts were recorded), independent execution of the quickstart, a production image and its availability/RTO/RPO/backup targets, and CI image build/test coverage.
+
+### Traceability Matrix
+
+| Finding or concern | Primary source | Task Analysis location | Current role |
+|--------------------|----------------|------------------------|--------------|
+| Presentation test isolation and obsolete roles | [spec 006](../.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md) | Point 1 | Blocking test infrastructure defect |
+| Auto-expiry and request lifecycle | [spec 001 tasks](../.specify/specs/001-vacation-request/tasks.md), `spec-pending-clarifications.md` | Point 2 | Missing business capability and active balance defect |
+| Metrics and tracing | `spec_007`, `architecture.md` | Point 2 and Point 12 | Metrics delivered; tracing and operational controls incomplete |
+| Log aggregation | `spec_009`, [ADR-002](adr/ADR-002-prometheus-observability.md) | Point 2 | Delivered locally with security and retention caveats |
+| Docker agent teams | `spec_010`, [ADR-003](adr/ADR-003-docker-agents.md) | Point 2 | Optional tooling with sandbox, privacy, quota, and evaluation risks |
+| Audit immutability and history | [spec 001 tasks](../.specify/specs/001-vacation-request/tasks.md), Constitution sections 6 and 13 | Points 3 and 4 | Compliance and traceability gaps |
+| Confirmation UI, CDN, headers, authorization | [spec 004 tasks](../.specify/specs/004-initial-setup-and-authentication/tasks.md), Constitution section 7 | Points 5 through 9 | Mixed resolved, security, and verification status |
+| E2E, accessibility, performance, coverage, rate limiting | `spec_001`, `spec_004`, `spec_002`, Constitution sections 9, 11, and 12 | Points 10 through 14 | Verification and quality debt |
+| Infrastructure test project and documentation structure | `architecture.md`, Constitution sections 12.3 and 14 | Points 15 through 17 | Repository governance and coverage gaps |
+| Docker benchmark, retry, appsettings, and migration decisions | [spec 005](../.specify/specs/005-docker-containerization/spec_005-docker-containerization.md), [research.md](../.specify/specs/005-docker-containerization/research.md), [ADR-001](adr/ADR-001-docker-local-development-environment.md) | Points 18 through 22 | Decisions to preserve with remaining operational evidence |
+| DI duplication and table naming | Constitution section 3.3 and current source | Point 23 | Low-risk housekeeping and documented deviation |
+
+The detailed rationale for the Docker decisions remains in `research.md`; the matrix is an index for review and does not replace those source documents.
+
 ## Overall Conclusion
 
 The 23 findings do not have equal status. The presentation suite still fails for the documented isolation and role reasons; auto-expiry and the approval double-deduction are active business risks; audit protection, concurrency validation, CDN integrity, security headers, and missing authorization evidence remain high-priority controls. The observability/logging work is useful but still carries the concrete GAP-007 and GAP-009 production-readiness risks documented above. Audit history, accessibility, coverage, performance, rate-limiting verification, infrastructure-test organization, and operational documentation are verification or readiness debt.
 
-The original snapshot is materially stale in four ways: the destructive-action confirmation component now exists and is in use; session revalidation has meaningful tests; a role-switcher E2E suite and metrics/Grafana observability have been added; and the ADR directory plus the Docker, retry, appsettings, and development-migration decisions are present or being honored. These changes reduce some percentages, but they do not establish production readiness because the main test suite remains red and the critical lifecycle, security, and operational gaps remain.
+The original snapshot is materially stale in five ways: the destructive-action confirmation component now exists and is in use; session revalidation has meaningful tests; a role-switcher E2E suite and metrics/Grafana observability have been added; the ADR directory plus the Docker, retry, appsettings, and development-migration decisions are present or being honored; and optional Docker agent teams now exist with their own documented caveats. These changes reduce some percentages, but they do not establish production readiness because the main test suite remains red and the critical lifecycle, security, operational, and agent-tooling boundaries remain incomplete.
 
 The project can run without resolving every finding, but running successfully is not equivalent to being verifiable, secure, operationally ready, or protected against regression. The percentages in this document express the necessity of addressing each point, not the probability that the application will fail immediately. No new numbered issue was added: the balance defect is deliberately recorded under point 2 because it belongs to the same request-lifecycle invariant.
 
