@@ -1,0 +1,209 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/docker-agent/v1.140.0/agent-schema.json
+#
+# NovaLeave -- development agent team (spec_010).
+#
+#   docker/agents/dev-team.sh                    # Gemini, in a Docker Sandbox
+#   (--flavor local is defined below but cannot reach the sandbox yet -- spec_010 GAP-010-8)
+#
+# Run from the repository root: every path below is relative to the working directory.
+#
+# This team edits files and runs builds, so it runs inside a Docker Sandbox (microVM), launched
+# through dev-team.sh -- see `runtime` below and ADR-003. The sandbox has its own Docker daemon, so
+# the compose stack (web, db, Prometheus, Loki) is NOT visible from here; questions about the
+# running stack belong to ops-team.yaml.
+
+version: "16"
+
+metadata:
+  author: NovaLeave Development Team
+  description: Plans, reviews and tests changes to NovaLeave against its constitution and specs.
+  version: "1.0.0"
+
+runtime:
+  # NOT `sandbox: true`: docker-agent 1.140 re-reads it inside the sandbox and refuses to start
+  # ("already running inside a Docker sandbox"). Launch with docker/agents/dev-team.sh, which
+  # passes --sandbox and the pinned template instead (spec_010 T306, GAP-010-7).
+  #
+  # The sandbox proxy is default-deny. These are the only hosts the team needs beyond the model
+  # provider: the .NET SDK image and NuGet package restore (spec_010 FR-006).
+  network_allowlist:
+    - mcr.microsoft.com
+    - "*.data.mcr.microsoft.com"
+    - api.nuget.org
+  # Balanced: read-only calls auto-approve, anything that writes or executes asks first.
+  safety: balanced
+
+models:
+  # Every agent uses this one model so a single flavor can switch the whole team (FR-003).
+  default:
+    provider: google
+    model: gemini-3.8-flash
+    max_tokens: 16000
+
+flavors:
+  # Local model through Docker Model Runner: no API key, nothing leaves the machine.
+  # Merged over `models.default` above (JSON Merge Patch): every key set here replaces the cloud
+  # value. The model must already be pulled -- `docker model pull ai/qwen3:8b-q4_K_M` -- or the
+  # run stops at startup with instructions.
+  local:
+    models:
+      default:
+        provider: dmr
+        # Pinned, never a floating tag (Constitution §7.2). Same model as compose.yaml.
+        model: ai/qwen3:8b-q4_K_M
+        max_tokens: 4096
+        provider_opts:
+          context_size: 16384
+
+agents:
+  root:
+    model: default
+    description: Coordinator for NovaLeave development work.
+    welcome_message: |
+      NovaLeave dev team. Ask me to plan a feature, review a change, or write tests.
+    instruction: |
+      You coordinate NovaLeave development work. NovaLeave is an ASP.NET Core (.NET 10) vacation
+      request system built with Clean Architecture: Domain, Application, Infrastructure,
+      Presentation.Web, with tests under tests/.
+
+      Delegate rather than doing the work yourself:
+      - planner: specifications, plans, task lists, ADRs, anything under .specify/ or docs/.
+      - reviewer: reviewing code or a git diff, building the solution, running tests to check a claim.
+      - tester: writing or fixing tests.
+
+      Break multi-step requests into todos first. When a sub-agent reports back, summarise what it
+      found and what it changed, including any test failures verbatim. Never claim something was
+      built or tested unless a sub-agent actually ran the tool and reported the result.
+    sub_agents: [planner, reviewer, tester]
+    toolsets:
+      - type: think
+      - type: todo
+
+  planner:
+    model: default
+    description: Writes specs, plans, task lists and ADRs in the project's Spec Kit format.
+    instruction: |
+      You write NovaLeave planning documents. Before writing anything, read:
+      - .specify/memory/constitution.md -- binding rules; cite sections (e.g. §7.2) in every Constitution Check.
+      - .specify/templates/ -- spec, plan and tasks templates.
+      - .specify/specs/common/ -- architecture, security, data model and audit catalogue. Link to
+        these; never duplicate them.
+      - The most recent feature folder under .specify/specs/ as a worked example of the house style.
+      - docs/adr/ for ADR structure, and docs/Keep-in-mind.md for open work and settled decisions.
+
+      Conventions:
+      - Specs live in .specify/specs/NNN-short-name/ with spec_NNN-short-name.md, plan.md, tasks.md.
+      - Requirements are FR-NNN, success criteria SC-NNN, gaps GAP-NNN-N.
+      - New infrastructure needs an ADR (Constitution §12.2); ADRs are docs/adr/ADR-NNN-title.md.
+      - Record what was verified and how. Never mark a success criterion as met without evidence.
+
+      You may only write under .specify/ and docs/. You cannot see source code outside those
+      folders; ask the coordinator to involve the reviewer if you need facts about the code.
+    toolsets:
+      - type: filesystem
+        # Containment is enforced by the tool, not by the prompt (FR-007).
+        allow_list: [.specify, docs]
+      - type: think
+
+  reviewer:
+    model: default
+    description: Reviews code and diffs; builds the solution and runs tests in the .NET SDK container.
+    instruction: |
+      You review NovaLeave code for correctness and for compliance with the project's rules.
+      Read .specify/specs/common/architecture.md and .specify/specs/common/security.md before
+      reviewing, and .specify/memory/constitution.md for anything they reference.
+
+      Check in particular:
+      - Layer dependencies: Domain depends on nothing; Application only on Domain; Infrastructure
+        implements Application contracts; Presentation.Web is the composition root.
+      - Async I/O end to end; no sync-over-async.
+      - Secrets never in tracked files; sensitive data (request reasons, personal identifiers)
+        never in logs, metrics labels or error messages.
+      - Tests exist for new behavior.
+
+      Report findings ranked by severity, each with file:line and a concrete failure scenario.
+      Use git tools to see what changed. Build and test with the dotnet_build and dotnet_test tools
+      -- the host has no .NET 10 SDK, so never try to run dotnet directly.
+
+      Known baseline: NovaLeave.Presentation.Tests fails 24-26 of 49 tests for reasons diagnosed in
+      spec_006. Only report Presentation failures outside that range, or new failing test names.
+    toolsets:
+      - type: filesystem
+        readonly: true
+      - type: git
+      - type: think
+      # The git toolset is inspection-only and has no diff; this adds exactly that, read-only.
+      - type: script
+        shell:
+          git_diff:
+            description: >-
+              Show the diff of the working tree against a base ref, e.g. HEAD, main or
+              HEAD~3. Returns the full patch followed by a stat summary.
+            required: [base]
+            args:
+              base:
+                type: string
+                description: Base ref to diff against. Use HEAD for uncommitted changes.
+            # Refs starting with '-' are rejected so the value cannot smuggle in a git option
+            # such as --output=<file>. Only plain $arg references: docker-agent reads every $NAME
+            # or ${...} in cmd as a tool argument and silently drops the whole toolset if one is
+            # undeclared -- including $PWD and ${x:-default}.
+            cmd: >-
+              case "$base" in -*) echo "invalid ref" >&2; exit 2;; esac;
+              git --no-pager diff "$base" --; git --no-pager diff --stat "$base" --
+      - &dotnet
+        type: script
+        shell:
+          dotnet_build:
+            description: Build the whole solution in the .NET 10 SDK container. Warnings are errors.
+            # The NuGet cache volume is required: without it restore fails with NETSDK1064
+            # (spec_007 tasks.md, Phase 1 note). The volume lives in whichever Docker daemon
+            # runs this -- the sandbox's own, when sandboxed.
+            cmd: >-
+              docker run --rm -v "$(pwd)":/src -v novaleave-agent-nuget:/root/.nuget/packages -w /src
+              mcr.microsoft.com/dotnet/sdk:10.0 dotnet build NovaLeave.slnx 2>&1 | tail -n 60
+          dotnet_test:
+            description: Run one test project in the .NET 10 SDK container and return the summary.
+            required: [project]
+            args:
+              project:
+                type: string
+                description: Test project to run.
+                # An enum, not free text: the value ends up in a shell command.
+                enum:
+                  - NovaLeave.Domain.Tests
+                  - NovaLeave.Application.Tests
+                  - NovaLeave.Presentation.Tests
+            cmd: >-
+              docker run --rm -v "$(pwd)":/src -v novaleave-agent-nuget:/root/.nuget/packages -w /src
+              mcr.microsoft.com/dotnet/sdk:10.0
+              dotnet test "tests/$project/$project.csproj" --logger "console;verbosity=minimal" 2>&1 | tail -n 80
+
+  tester:
+    model: default
+    description: Writes and fixes xUnit tests; runs them to prove they pass.
+    instruction: |
+      You write NovaLeave tests with xUnit. Match the style of the existing tests in the project
+      you are adding to: naming, arrange/act/assert layout, and test doubles already in use.
+      Read the code under test (src/ is readable) but only write under tests/.
+
+      Test behavior, not implementation. Time-dependent code uses TimeProvider -- inject a fake,
+      never sleep. A test is not done until dotnet_test has run and you have reported the result.
+      If a test fails, report the failure verbatim; do not weaken the assertion to make it pass.
+    toolsets:
+      # src/ is listed so the code under test can be read. Writing there is refused by the
+      # permissions block below, not by this instruction (FR-007).
+      - type: filesystem
+        allow_list: [tests, src]
+      - type: think
+      - *dotnet
+
+# This team plans, reviews and tests -- it never changes production code. Deny rules take
+# priority over every safety mode, including --yolo. Both relative and absolute path forms are
+# matched because the model may pass either.
+permissions:
+  deny:
+    - "write_file:path=src/*"
+    - "write_file:path=*/src/*"
+    - "edit_file:path=src/*"
+    - "edit_file:path=*/src/*"

@@ -28,6 +28,7 @@ This document defines the shared architectural decisions and technical context f
 | **Testing** | xUnit, WebApplicationFactory, Playwright (E2E) |
 | **Containerization** | Docker — delivered for local development by [`005-docker-containerization`](../005-docker-containerization/plan.md); see [ADR-001](../../../docs/adr/ADR-001-docker-local-development-environment.md). A production image is not yet built (GAP-005-1) |
 | **Observability** | OpenTelemetry (metrics), Prometheus, Loki (logs), Grafana Alloy, Grafana — see [ADR-002](../../../docs/adr/ADR-002-prometheus-observability.md) |
+| **AI agents (development tooling)** | Docker Agent teams, Docker Model Runner, Docker Sandboxes — delivered by [`010-docker-agents`](../010-docker-agents/spec_010-docker-agents.md); see [ADR-003](../../../docs/adr/ADR-003-docker-agents.md). Not part of the application |
 | **CI/CD** | GitHub Actions |
 | **Deployment** | Azure-ready |
 

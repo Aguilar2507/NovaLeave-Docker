@@ -1,7 +1,7 @@
 # Keep in mind
 
 **Last updated**: 2026-09-23
-**Context**: compiled at the close of `spec_005` (Docker), updated at the close of `spec_007` (metrics), `spec_008` (seed data) and `spec_009` (logs)
+**Context**: compiled at the close of `spec_005` (Docker), updated at the close of `spec_007` (metrics), `spec_008` (seed data), `spec_009` (logs) and `spec_010` (AI agents)
 
 Open work, known limitations, and decisions worth not re-litigating. Read this before picking up a task.
 
@@ -110,6 +110,25 @@ Tracing reuses the same OpenTelemetry setup — add tracing instrumentation and 
 | **GAP-009-5** 🔒 | Request **reasons** are Sensitive/PII (§7.3). Nothing logs them today, but **no test or lint prevents someone adding one** — and logs are now centrally stored and queryable, which raises the cost of that mistake |
 
 **Field-name gotcha**: LogQL's `| json` sanitises CLEF's `@`-prefixed keys — `@l`→`_l`, `@t`→`_t`, `@mt`→`_mt`. Information-level lines have no `_l` at all (CLEF omits it). Enriched properties keep their names.
+
+## 2e. AI agent teams — delivered, with docker-agent caveats
+
+`spec_010` added two optional Docker Agent teams (development tooling, not application code): an **ops team** that reads the running stack (`docker compose run --rm ops-agent` / `ops-agent-local`) and a **dev team** that plans, reviews and tests in a Docker Sandbox (`docker/agents/dev-team.sh`). Cloud model is Gemini; the ops team also runs on a local Model Runner model. See [ADR-003](adr/ADR-003-docker-agents.md).
+
+| ID | Gap from spec_010 |
+|----|-------------------|
+| **GAP-010-7** ⚪ | **Always start the dev team with `docker/agents/dev-team.sh`.** `docker agent run docker/agents/dev-team.yaml` works but is **not sandboxed** — docker-agent 1.140 breaks on `runtime.sandbox: true`, so the launcher passes `--sandbox` instead. Restore the YAML setting when a fixed release ships |
+| GAP-010-8 | The sandboxed dev team **cannot use the local model**: docker-agent forwards `--flavor local` as `[local]` and silently falls back to Gemini. The launcher refuses `--flavor` for that reason |
+| GAP-010-9 | The **Gemini free tier** returns `HTTP 429` after a few multi-agent questions. A billed key is needed for regular use |
+| **GAP-010-2** 🔒 | `ops-agent` mounts the Docker socket, same exposure as Alloy (GAP-009-1). Bounded by having no shell — three fixed read-only commands only |
+| **GAP-010-3** 🔒 | With Gemini, **everything the agents read is sent to Google**, and on the free tier may be used to improve its products. Seeded data only — never point the agents at real data |
+| GAP-010-5 | No automated evaluation of agent behavior (`docker agent eval`) |
+| GAP-010-6 | Agent prompts embed metric names and test baselines — **update `docker/agents/*.yaml` when the metrics catalogue or the Presentation.Tests baseline changes** |
+| T309 | Still to verify: a permitted sandbox write under `tests/` reaching the host, and `dotnet_test` inside the sandbox (blocked by GAP-010-9 on 2026-09-23) |
+
+**Per-machine setup — not in the repository.** Each developer runs once: `sbx login`, `sbx policy init balanced`, and `sbx secret set google --command "grep '^GOOGLE_API_KEY=' $PWD/.env | cut -d= -f2-"`. Without the stored secret, Gemini answers **HTTP 400** from inside the sandbox — it looks like a config error but is a missing credential.
+
+**Script-tool gotcha**: docker-agent reads every `$NAME` or `${...}` in a script tool's `cmd` as a tool argument and **silently drops the whole toolset** if one is undeclared — `$PWD` and `${x:-default}` included. Run `docker agent debug toolsets <file>` after every edit to a team file.
 
 ## 2c. Approving a request charges the employee TWICE
 

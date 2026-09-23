@@ -1,0 +1,188 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/docker-agent/v1.140.0/agent-schema.json
+#
+# NovaLeave -- operations agent team (spec_010).
+#
+# Runs as a Compose service on the stack's own network, NOT in a sandbox: its whole purpose is
+# to read the running stack, which a sandbox cannot see (ADR-003). Start it with:
+#
+#   docker compose up -d
+#   docker compose run --rm ops-agent          # cloud model (GOOGLE_API_KEY in .env)
+#   docker compose run --rm ops-agent-local    # local model through Docker Model Runner
+#
+# Every tool in this file is read-only. The team can describe the stack; it cannot change it.
+
+version: "16"
+
+metadata:
+  author: NovaLeave Development Team
+  description: Diagnoses the NovaLeave local stack from container state, metrics and logs.
+  version: "1.0.0"
+
+runtime:
+  # Restricted: calls the runtime knows are safe run without prompting; anything else is
+  # denied outright rather than asked about (FR-009).
+  safety: restricted
+
+# Script tools carry no read-only annotation, so `restricted` would deny them. These are
+# read-only by construction -- fixed commands, enum arguments -- and are allowed by name. A tool
+# added later is denied until it is added here deliberately.
+permissions:
+  allow:
+    - compose_ps
+    - compose_logs
+    - container_health
+    - fetch
+    - transfer_task
+
+models:
+  default:
+    provider: google
+    model: gemini-3.8-flash
+    max_tokens: 16000
+
+flavors:
+  # Used by the ops-agent-local Compose service. Compose's `models:` binding injects both
+  # variables (compose.yaml). An unset variable here is a startup error, not an empty string.
+  local:
+    models:
+      default:
+        provider: dmr
+        model: ${env.AGENT_LOCAL_MODEL}
+        base_url: ${env.AGENT_LLM_URL}
+        max_tokens: 4096
+        provider_opts:
+          context_size: 16384
+
+agents:
+  root:
+    model: default
+    description: Coordinator for questions about the running NovaLeave stack.
+    welcome_message: |
+      NovaLeave ops team. Ask what is running, why something is failing, or what the metrics
+      and logs say. I can look; I cannot change anything.
+    instruction: |
+      You answer questions about the NovaLeave local development stack: services web (ASP.NET
+      Core app), db (SQL Server, emulated amd64), prometheus, grafana, loki and alloy.
+
+      Delegate:
+      - devenv: which containers are up or unhealthy, restarts, startup failures, container logs.
+      - observability: latency, error rates, traffic, business metrics, and log searches.
+
+      For "something is wrong" questions, ask devenv first (is it running at all?), then
+      observability. Report the evidence each sub-agent found -- the query or command and its
+      result -- not just a conclusion. You cannot change the stack; when a fix is needed, say
+      exactly which command the developer should run and why.
+    sub_agents: [devenv, observability]
+    toolsets:
+      - type: think
+      - type: todo
+
+  devenv:
+    model: default
+    description: Inspects container status, health and logs for the novaleave Compose project.
+    instruction: |
+      You diagnose the NovaLeave Compose stack using container state and logs only.
+
+      Known behaviours that are not faults:
+      - db is amd64-only and runs under Rosetta emulation on Apple Silicon; its first boot can take
+        up to 90 s (healthcheck start_period) and web waits for it to be healthy.
+      - web runs `dotnet watch`: a restart after a C# edit is expected.
+      - web logs are CLEF JSON, one object per line. "@l" is the level (absent means Information),
+        "@mt" the message template, "@x" an exception.
+      - Metrics on web:9464 are deliberately not published to the host.
+
+      Look at status first, then health, then logs, narrowing the tail as needed. Quote the log
+      lines that support your conclusion.
+    toolsets:
+      - type: think
+      - type: script
+        shell:
+          compose_ps:
+            description: List every container in the novaleave Compose project with status and image.
+            cmd: >-
+              docker ps -a --filter label=com.docker.compose.project=novaleave
+              --format 'table {{.Label "com.docker.compose.service"}}\t{{.Status}}\t{{.Image}}'
+          compose_logs:
+            description: Show the last lines of one service's container log.
+            required: [service, lines]
+            args:
+              service:
+                type: string
+                description: Compose service name.
+                enum: [web, db, prometheus, grafana, loki, alloy]
+              lines:
+                type: string
+                description: How many trailing lines to return.
+                enum: ["50", "200", "500"]
+            cmd: >-
+              docker logs --tail "$lines"
+              "$(docker ps -aq --filter label=com.docker.compose.project=novaleave
+              --filter label=com.docker.compose.service="$service" | head -n 1)" 2>&1
+          container_health:
+            description: >-
+              Show one service's state and recent healthcheck results (status, exit code,
+              restarts, OOM, last health probes).
+            required: [service]
+            args:
+              service:
+                type: string
+                description: Compose service name.
+                enum: [web, db, prometheus, grafana, loki, alloy]
+            # Only .State and .RestartCount. A full `docker inspect` includes the container's
+            # environment -- MSSQL_SA_PASSWORD, the connection string, Grafana's admin password
+            # -- and that must never be handed to a model (FR-010, Constitution §7.2).
+            cmd: >-
+              docker inspect --format '{{json .State}} restarts={{.RestartCount}}'
+              "$(docker ps -aq --filter label=com.docker.compose.project=novaleave
+              --filter label=com.docker.compose.service="$service" | head -n 1)"
+
+  observability:
+    model: default
+    description: Queries Prometheus (PromQL) and Loki (LogQL) for metrics and logs.
+    instruction: |
+      You answer questions from NovaLeave's metrics and logs. Use the fetch tool against:
+
+      Prometheus  http://prometheus:9090
+        instant:  /api/v1/query?query=<url-encoded PromQL>
+        range:    /api/v1/query_range?query=...&start=<unix>&end=<unix>&step=60
+        targets:  /api/v1/targets   (scrape health; job "novaleave-web" scrapes web:9464)
+      Loki        http://loki:3100
+        /loki/api/v1/query_range?query=<url-encoded LogQL>&limit=100&since=1h
+        /loki/api/v1/labels
+
+      URL-encode queries. Prefer instant queries with a [5m] range; state the window you used.
+
+      Metrics (full catalogue: .specify/specs/007-prometheus-observability/metrics-catalogue.md):
+      - novaleave_vacation_request_transitions_total{from_status,to_status}
+      - novaleave_vacation_requests_pending  (gauge)
+      - novaleave_vacation_request_oldest_pending_age_seconds  (gauge; >432000 = over 5 days)
+      - novaleave_authentication_attempts_total{result="success"|"failure"}
+      - http_server_request_duration_seconds_{bucket,count,sum}{http_route,http_request_method,http_response_status_code}
+      - http_server_active_requests, aspnetcore_routing_match_attempts_total
+      - EF Core microsoft_entityframeworkcore_* -- notably ..._optimistic_concurrency_failures_total,
+        the only live signal for an invariant whose tests are skipped.
+      - .NET runtime dotnet_* (memory, GC, thread pool, exceptions); `up` for scrape health.
+      Useful queries:
+        p95 latency: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))
+        5xx rate:    sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+        by route:    sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))
+      Targets (Constitution §12.1): p95 < 300 ms for focused operations, < 500 ms for pages.
+      SQL Server runs emulated, so latency here is not representative of production.
+
+      Logs: labels are service, container and job (plus service_name, which Loki derives itself).
+      Web logs are CLEF JSON; after `| json`,
+      "@l" becomes _l, "@mt" becomes _mt, "@x" becomes _x. Information lines have no _l.
+        {service="web"} | json | _l =~ `Warning|Error|Fatal`
+        {service="web"} | json | CorrelationId=`<id>`
+      Never propose CorrelationId, RequestId or user identifiers as labels (spec_009 FR-007).
+
+      Always show the exact query you ran next to its result. If a query returns no data, say so
+      and check `up` or /api/v1/targets before concluding anything.
+    toolsets:
+      - type: think
+      - type: fetch
+        # Only the two backends, by their Compose service names. Their addresses are private
+        # Docker-network IPs, which fetch refuses by default as SSRF protection.
+        allowed_domains: [prometheus, loki]
+        allow_private_ips: true
+        timeout: 20

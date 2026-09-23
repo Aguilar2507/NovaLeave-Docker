@@ -187,6 +187,75 @@ services:
     user: root
     restart: unless-stopped
 
+  # spec_010: operations agent team (docker/agents/ops-team.yaml), cloud model.
+  #
+  #   docker compose run --rm ops-agent
+  #
+  # Interactive, so it is run, never `up`-ed. The `agents` profile keeps it out of a plain
+  # `docker compose up`, which starts exactly the services above (FR-011); `compose run` enables
+  # a target service's profile by itself.
+  ops-agent:
+    # Pinned to an explicit version, verified against Docker Hub (Constitution §7.2). The
+    # official image ships the docker CLI, which the devenv agent's tools use.
+    image: docker/docker-agent:1.140.0
+    profiles: ["agents"]
+    # Entrypoint rather than command, so arguments after the service name are APPENDED:
+    # `docker compose run --rm ops-agent --debug` works instead of replacing the config path.
+    entrypoint: ["/docker-agent", "run", "/agents/ops-team.yaml"]
+    # Deliberately no depends_on: starting this must not boot the stack. "Nothing is running"
+    # is an answer the devenv agent should be able to give.
+    environment:
+      # Empty is allowed so ops-agent-local works without a key. The cloud run then fails at
+      # startup with docker-agent's own missing-credential message.
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      DOCKER_AGENT_NO_TOUR: "1"
+      # Nothing here should phone home from a development machine (as for Grafana above).
+      # docker-agent telemetry is on by default and its command events include positional
+      # arguments -- which can be the prompt itself (FR-010).
+      TELEMETRY_ENABLED: "false"
+    volumes:
+      # Read-only: agent definitions are code, reviewed like any other file.
+      - ./docker/agents:/agents:ro
+      # Session history and the todo store survive `run --rm`.
+      - novaleave-agent-data:/root/.cagent
+      # SECURITY: same exposure as alloy -- socket access is effectively root on the Docker
+      # daemon, and `:ro` does not restrict the API. What bounds it here is that the agent has
+      # no shell: only three fixed, read-only script tools with enum arguments (ops-team.yaml),
+      # and inspect output is limited to .State so container environments -- which hold the SA
+      # and Grafana passwords -- never reach the model. Development only; ADR-003, GAP-010-2.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # The image's default user cannot read the Docker socket (see alloy above).
+    user: root
+    stdin_open: true
+    tty: true
+
+  # spec_010: the same team on a local model through Docker Model Runner.
+  #
+  #   docker desktop enable model-runner
+  #   docker compose run --rm ops-agent-local
+  #
+  # A separate service rather than a flag, because binding `models:` makes Compose require
+  # Model Runner -- the cloud service must not depend on it.
+  ops-agent-local:
+    extends:
+      service: ops-agent
+    entrypoint: ["/docker-agent", "run", "/agents/ops-team.yaml", "--flavor", "local"]
+    models:
+      agent-llm:
+        # Names read by the `local` flavor in ops-team.yaml. Compose fills them with the model's
+        # OpenAI-compatible endpoint and its id.
+        endpoint_var: AGENT_LLM_URL
+        model_var: AGENT_LOCAL_MODEL
+
+# spec_010: models are infrastructure dependencies, declared like images. Compose pulls and
+# starts this through Docker Model Runner only when a service that binds it is started.
+models:
+  agent-llm:
+    # Pinned tag, not `ai/qwen3` (Constitution §7.2). 8B at Q4_K_M is ~5 GB: fits alongside the
+    # stack on a 16 GB machine and supports tool calling. Keep in step with dev-team.yaml.
+    model: ai/qwen3:8b-q4_K_M
+    context_size: 16384
+
 volumes:
   novaleave-db-data:
   novaleave-nuget:
@@ -195,3 +264,4 @@ volumes:
   novaleave-grafana-data:
   novaleave-loki-data:
   novaleave-alloy-data:
+  novaleave-agent-data:

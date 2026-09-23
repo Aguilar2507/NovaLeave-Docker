@@ -46,7 +46,7 @@ docker run --rm -v "$PWD":/src -w /src mcr.microsoft.com/dotnet/sdk:10.0 \
   dotnet test tests/NovaLeave.Domain.Tests/NovaLeave.Domain.Tests.csproj
 ```
 
-> `NovaLeave.Presentation.Tests` currently fails 24–26 of its 49 tests for reasons unrelated to Docker — the fixtures share one in-memory database and reference roles the application does not define. Diagnosed in [spec 006](.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md). `Domain.Tests` (63) and `Application.Tests` (41) pass.
+> `NovaLeave.Presentation.Tests` currently fails 24–26 of its 49 tests for reasons unrelated to Docker — the fixtures share one in-memory database and reference roles the application does not define. Diagnosed in [spec 006](.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md). `Domain.Tests` (63) and `Application.Tests` (49) pass.
 
 ---
 
@@ -95,6 +95,38 @@ The application's own `/metrics` endpoint is served on an unpublished port and i
 
 ---
 
+## AI agents
+
+Two optional [Docker Agent](https://docs.docker.com/ai/docker-agent/) teams are defined in `docker/agents/`. Each is a coordinator that hands work to specialist sub-agents.
+
+| Team | Ask it to… | Runs in | Can change |
+|---|---|---|---|
+| **dev** — planner, reviewer, tester | write a spec or ADR, review your diff, build, run or write tests | a Docker Sandbox (microVM) | specs/docs and `tests/` only — never `src/` |
+| **ops** — devenv, observability | explain what is running or failing, query metrics and logs | a container on the stack's network | nothing — read-only |
+
+Both run on Google's Gemini cloud model (needs `GOOGLE_API_KEY`). The ops team can also run on a local model through Docker Model Runner (free, nothing leaves your machine, slower):
+
+```bash
+# Ops team — against the running stack
+docker compose up -d
+docker compose run --rm ops-agent          # cloud: set GOOGLE_API_KEY in .env
+docker compose run --rm ops-agent-local    # local: docker desktop enable model-runner, once
+
+# Dev team — always through the launcher, which runs it in a Docker Sandbox
+sbx login && sbx policy init balanced                      # once
+sbx secret set google --command "grep '^GOOGLE_API_KEY=' $PWD/.env | cut -d= -f2-"   # once
+docker/agents/dev-team.sh                                  # Gemini
+# (the local model is not available to the sandboxed dev team yet -- spec_010 GAP-010-8)
+```
+
+The sandbox never sees your real key: inside it, `GOOGLE_API_KEY` is a placeholder, and the sandbox proxy substitutes the stored secret on the way out. The `--command` form reads it from `.env` each time, so rotating the key means editing `.env` only.
+
+Try *"Is everything healthy?"*, *"What is p95 latency over the last 15 minutes?"*, or *"Review my uncommitted changes and run the Application tests."*
+
+> Use the launcher, not `docker agent run docker/agents/dev-team.yaml` directly — run that way, the team is **not** sandboxed (its file restrictions still apply, but builds use your host's Docker). The free Gemini tier allows only a few requests per minute and per day; one question makes several, so `HTTP 429` means wait (for the ops team, or use `ops-agent-local`). With the cloud model, everything the agents read is sent to Google — and on the free tier may be used to improve its products; do not point them at real data. Details in [ADR-003](docs/adr/ADR-003-docker-agents.md).
+
+---
+
 ## Project structure
 
 ```text
@@ -105,6 +137,7 @@ src/
   NovaLeave.Presentation.Web/  Controllers, Razor views, composition root
 
 tests/                         Domain, Application, Presentation (integration), E2E
+docker/                        Prometheus, Grafana, Loki and Alloy config; agents/ for AI agent teams
 .specify/                      Spec-kit specifications, plans and tasks
 docs/adr/                      Architecture decision records
 ```
