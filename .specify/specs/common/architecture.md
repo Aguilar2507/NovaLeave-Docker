@@ -27,6 +27,7 @@ This document defines the shared architectural decisions and technical context f
 | **Logging** | Serilog (structured) |
 | **Testing** | xUnit, WebApplicationFactory, Playwright (E2E) |
 | **Containerization** | Docker — delivered for local development by [`005-docker-containerization`](../005-docker-containerization/plan.md); see [ADR-001](../../../docs/adr/ADR-001-docker-local-development-environment.md). A production image is not yet built (GAP-005-1) |
+| **Observability** | OpenTelemetry (metrics), Prometheus, Loki (logs), Grafana Alloy, Grafana — see [ADR-002](../../../docs/adr/ADR-002-prometheus-observability.md) |
 | **CI/CD** | GitHub Actions |
 | **Deployment** | Azure-ready |
 
@@ -60,9 +61,10 @@ tests/
 ## Cross-Cutting Concerns
 
 ### Observability
-- Structured logging with Serilog (correlation IDs, request IDs)
+- Structured logging with Serilog (correlation IDs, request IDs) — **CLEF JSON shipped to Loki by `009-log-aggregation`**, queryable in Grafana
 - Health checks — `/health` delivered by `005-docker-containerization`, including an EF Core `DbContext` check
-- Metrics and tracing (baseline, not optional) — **not yet delivered by any feature**
+- **Metrics — delivered by [`007-prometheus-observability`](../007-prometheus-observability/plan.md)**: OpenTelemetry → Prometheus → Grafana; see [ADR-002](../../../docs/adr/ADR-002-prometheus-observability.md) and the [metrics catalogue](../007-prometheus-observability/metrics-catalogue.md)
+- **Tracing — still not delivered** (GAP-007-1). It reuses the OpenTelemetry setup from spec 007; do not introduce a second framework
 
 ### Time Abstraction
 - All time-dependent logic uses `TimeProvider` (Constitution §2.VI)
@@ -166,3 +168,6 @@ All production code generated during task implementation **must** be documented 
 - [`specs/004-initial-setup-and-authentication/plan.md`](../004-initial-setup-and-authentication/plan.md)
 - [`specs/001-vacation-request/plan.md`](../001-vacation-request/plan.md)
 - [`specs/005-docker-containerization/plan.md`](../005-docker-containerization/plan.md)
+- [`specs/007-prometheus-observability/plan.md`](../007-prometheus-observability/plan.md)
+- [`specs/008-development-seed-data/spec_008-development-seed-data.md`](../008-development-seed-data/spec_008-development-seed-data.md)
+- [`specs/009-log-aggregation/spec_009-log-aggregation.md`](../009-log-aggregation/spec_009-log-aggregation.md)

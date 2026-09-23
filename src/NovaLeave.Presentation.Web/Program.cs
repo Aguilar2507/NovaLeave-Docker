@@ -8,14 +8,23 @@ using NovaLeave.Application.Features.VacationRequest.Contracts;
 using NovaLeave.Application.Features.VacationRequest.Create;
 using NovaLeave.Infrastructure.Configuration;
 using NovaLeave.Infrastructure.Identity;
+using NovaLeave.Infrastructure.Observability;
 using NovaLeave.Infrastructure.Persistence;
 using NovaLeave.Infrastructure.Services;
 using NovaLeave.Presentation.Web.Authorization;
 using NovaLeave.Presentation.Web.Filters;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Serilog;
 using Serilog.Context;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// spec_007 FR-018: the port /metrics is bound to. Kestrel must be listening on it
+// (ASPNETCORE_HTTP_PORTS in compose.yaml), and compose must NOT publish it to the host.
+// Overridable so the port can be changed without a rebuild.
+var metricsPort = builder.Configuration.GetValue<int?>("Metrics:Port") ?? 9464;
 
 // Configure Serilog structured logging (spec_001 T002, architecture.md Observability)
 // Read configuration + enrich with correlation-id / request-id in the middleware below.
@@ -24,10 +33,29 @@ builder.Host.UseSerilog((context, services, configuration) =>
     configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .WriteTo.Console(
+        .Enrich.FromLogContext();
+
+    // spec_009: console format is configurable because the two consumers want opposite things.
+    // A human reading `docker compose logs` wants an aligned line; Loki wants JSON so that
+    // CorrelationId, RequestId and the message template survive as queryable FIELDS instead of
+    // being flattened into one opaque string.
+    //
+    // compose.yaml sets this to "json" for the container. The default stays "text" so that
+    // running outside Docker keeps the readable output this project has always had.
+    var consoleFormat = context.Configuration.GetValue<string>("Serilog:ConsoleFormat") ?? "text";
+
+    if (string.Equals(consoleFormat, "json", StringComparison.OrdinalIgnoreCase))
+    {
+        // CLEF (Compact Log Event Format): one JSON object per line, which is exactly what a
+        // log shipper can parse without guessing at a text layout.
+        configuration.WriteTo.Console(new CompactJsonFormatter());
+    }
+    else
+    {
+        configuration.WriteTo.Console(
             outputTemplate:
             "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {RequestId} {Message:lj}{NewLine}{Exception}");
+    }
 });
 
 // Add services to the container.
@@ -70,7 +98,14 @@ builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 // Register authentication services
-builder.Services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
+// spec_007 T204: the concrete service is registered by type, and the interface resolves to the
+// metrics decorator wrapping it. Consumers keep depending on IAuthenticationAuditService and are
+// unaware of the decoration (FR-010).
+builder.Services.AddScoped<AuthenticationAuditService>();
+builder.Services.AddScoped<IAuthenticationAuditService>(sp =>
+    new MetricsAuthenticationAuditService(
+        sp.GetRequiredService<AuthenticationAuditService>(),
+        sp.GetRequiredService<NovaLeaveMetrics>()));
 builder.Services.AddScoped<IAccountStatusValidator, AccountStatusValidator>();
 builder.Services.AddScoped<IDefaultDashboardResolver, DefaultDashboardResolver>(); // CU-202 Role Switcher
 builder.Services.AddScoped<LoginCommandHandler>();
@@ -95,6 +130,45 @@ builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("database");
 
+// spec_007 T102/T103: OpenTelemetry metrics exported in Prometheus format.
+// Delivers the "Metrics" half of the Observability baseline in common/architecture.md, which
+// no previous feature had implemented -- until now §12.1's latency targets were unmeasurable.
+builder.Services.AddSingleton<NovaLeaveMetrics>();
+builder.Services.AddOpenTelemetry()
+    // Without this the service reports as "unknown_service:NovaLeave.Presentation.Web".
+    // Prometheus and Grafana key dashboards off the service name, so setting it now avoids
+    // rewriting queries later.
+    .ConfigureResource(resource => resource.AddService(
+        serviceName: "novaleave-web",
+        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown"))
+    .WithMetrics(metrics =>
+    {
+        metrics
+            // Built-in ASP.NET Core meters, subscribed by name. ASP.NET Core 8+ emits these
+            // natively through System.Diagnostics.Metrics, so no instrumentation package is
+            // needed -- OpenTelemetry.Instrumentation.AspNetCore now covers tracing only, and
+            // its metrics extension no longer exists.
+            //
+            // These use ROUTE TEMPLATES, not raw paths, which is what keeps their cardinality
+            // bounded. Do not "improve" this into raw paths (research.md R-005).
+            .AddMeter("Microsoft.AspNetCore.Hosting")
+            .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
+            .AddMeter("Microsoft.AspNetCore.Routing")
+            .AddMeter("Microsoft.AspNetCore.Diagnostics")
+            // Rate limiting is required by Constitution §7.2 but has never been verified
+            // (docs/Keep-in-mind.md item 14): its tests are disabled in the Testing
+            // environment. These metrics make the limiter observable for the first time.
+            .AddMeter("Microsoft.AspNetCore.RateLimiting")
+            // .NET runtime: GC, thread pool, memory, exception counts. Native since .NET 9,
+            // so like the ASP.NET Core meters this needs no instrumentation package.
+            .AddMeter("System.Runtime")
+            // EF Core's native meter, subscribed by name rather than through the beta
+            // instrumentation package (research.md R-001).
+            .AddMeter("Microsoft.EntityFrameworkCore")
+            .AddMeter(NovaLeaveMetrics.MeterName)
+            .AddPrometheusExporter();
+    });
+
 // Register TimeProvider for deterministic time in tests (Constitution §2.VI)
 // Default to system time; tests replace with FakeTimeProvider
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
@@ -104,7 +178,17 @@ builder.Services.Configure<HolidayCalendarOptions>(
     builder.Configuration.GetSection(HolidayCalendarOptions.SectionName));
 builder.Services.AddSingleton<IHolidayCalendar, HolidayCalendar>();
 builder.Services.AddScoped<IWorkingDayCalculator, WorkingDayCalculator>();
-builder.Services.AddScoped<IStateTransitionAuditService, StateTransitionAuditService>();
+// spec_007 T204: decorated with metrics. Every one of the six vacation-request handlers calls
+// through this contract, so wrapping it counts every state transition without touching them.
+builder.Services.AddScoped<StateTransitionAuditService>();
+builder.Services.AddScoped<IStateTransitionAuditService>(sp =>
+    new MetricsStateTransitionAuditService(
+        sp.GetRequiredService<StateTransitionAuditService>(),
+        sp.GetRequiredService<NovaLeaveMetrics>()));
+
+// spec_007 T203: queue-state gauges. A BackgroundService so the host starts it automatically --
+// an ObservableGauge only reports while the object that registered it is alive.
+builder.Services.AddHostedService<VacationRequestMetricsCollector>();
 
 // T113, T117: VacationRequestRepository
 builder.Services.AddScoped<IVacationRequestRepository, VacationRequestRepository>();
@@ -182,6 +266,19 @@ if (!app.Environment.IsDevelopment())
 // credentials. Exposes status only -- no diagnostics detail, which Constitution §7.2 prohibits
 // from being publicly reachable.
 app.MapHealthChecks("/health");
+
+// spec_007 T104/T401/FR-018: Prometheus scraping endpoint, served ONLY on the metrics port.
+// Mapped before authentication so a scrape needs no credentials or cookie (US4-3).
+//
+// RequireHost pins this endpoint to port 9464, which compose.yaml deliberately does not publish
+// to the host. The application port (8080) is published, and on that port /metrics returns 404.
+//
+// This is not belt-and-braces: Phase 4's negative test proved that serving /metrics on the
+// application port exposed it to anyone who could reach the app, because publishing a port
+// publishes every path on it. Binding metrics to a separate, unpublished port is what actually
+// enforces Constitution §7.2's prohibition on publicly exposed diagnostics
+// (research.md R-006 amendment).
+app.MapPrometheusScrapingEndpoint().RequireHost($"*:{metricsPort}");
 
 // Serve static files BEFORE other middleware (CSS, JS, images from wwwroot)
 // This must come early in the pipeline to avoid authentication/authorization checks for static assets

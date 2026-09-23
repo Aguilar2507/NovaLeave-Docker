@@ -56,13 +56,22 @@ services:
     environment:
       # Stays Development so the seeder runs and detailed errors are available.
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
-      ASPNETCORE_HTTP_PORTS: "8080"
+      # Two listeners: 8080 serves the application, 9464 serves ONLY /metrics.
+      # 9464 is deliberately absent from `ports:` below, so it exists solely on the Docker
+      # network. Serving metrics on 8080 would expose them to anyone who can reach the app,
+      # because publishing a port publishes every path on it (spec_007 T401, FR-018).
+      ASPNETCORE_HTTP_PORTS: "8080;9464"
+      # spec_009: CLEF JSON on stdout so Loki stores queryable fields rather than one opaque
+      # string. `docker compose logs -f web` is still usable -- pipe it through `jq`.
+      Serilog__ConsoleFormat: json
       # Supplied as an environment variable rather than an appsettings file: environment
       # configuration outranks appsettings.Development.json, so this overrides the LocalDB
       # connection string without editing a tracked file, and keeps the password out of
       # the repository (FR-011).
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=NovaLeave;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
     ports:
+      # Only the application port. 9464 is intentionally NOT listed -- that omission is the
+      # control that keeps /metrics off the host (FR-018).
       - "${WEB_PORT:-8080}:8080"
     volumes:
       # Source is mounted, not copied, so dotnet watch sees edits (FR-015).
@@ -86,7 +95,103 @@ services:
       - novaleave-dpkeys:/root/.aspnet/DataProtection-Keys
     restart: unless-stopped
 
+  # spec_007 T305: metrics collection.
+  prometheus:
+    # Pinned to an explicit version, verified against the registry (FR-015, Constitution §7.2).
+    # Multi-arch, so unlike SQL Server it runs natively on arm64 -- no emulation.
+    image: prom/prometheus:v3.14.0
+    depends_on:
+      - web
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Development retention. A deployed instance needs this sized deliberately (GAP-007-3).
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      # Published so you can use Prometheus's expression browser directly. This exposes
+      # Prometheus, NOT the application's /metrics endpoint, which stays internal (FR-018).
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      # Read-only: the repository is the source of truth for scrape configuration. A writable
+      # mount invites drift between what is committed and what is running (research.md R-008).
+      #
+      # The DIRECTORY is mounted, not the single file. Editing a bind-mounted file with any tool
+      # that writes a new inode (sed -i, most editors' atomic save) leaves the container pointing
+      # at the deleted original, and Prometheus then fails config reload with
+      # "no such file or directory" until the container is recreated.
+      - ./docker/prometheus:/etc/prometheus:ro
+      - novaleave-prometheus-data:/prometheus
+    restart: unless-stopped
+
+  # spec_007 T305: dashboards.
+  grafana:
+    image: grafana/grafana:13.2.2
+    depends_on:
+      - prometheus
+    environment:
+      # From .env, never committed (FR-019). Development-only credentials.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env -- copy .env.example first}
+      # No anonymous access: metrics disclose route names, traffic volume and error patterns.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # Nothing here should phone home from a development machine.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      # Read-only provisioning: dashboards and datasources are code, not container state.
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - novaleave-grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
+  # spec_009 T301: log storage.
+  loki:
+    image: grafana/loki:3.7.8
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    ports:
+      # Published for direct API access while developing. Like Prometheus, Loki has NO
+      # authentication -- acceptable bound to localhost, not in a deployed environment
+      # (GAP-009-2).
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      # Directory, not a single file: editing a bind-mounted file replaces its inode and
+      # leaves the container pointing at a deleted path (learned in spec_007 T401).
+      - ./docker/loki:/etc/loki:ro
+      - novaleave-loki-data:/loki
+    restart: unless-stopped
+
+  # spec_009 T302: log shipping. Reads container stdout via the Docker API and pushes to Loki.
+  alloy:
+    image: grafana/alloy:v1.19.2
+    depends_on:
+      - loki
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./docker/alloy:/etc/alloy:ro
+      - novaleave-alloy-data:/var/lib/alloy/data
+      # SECURITY: access to the Docker socket is effectively root on the Docker daemon -- it
+      # can start privileged containers and mount the host filesystem. `:ro` restricts writes
+      # to the socket FILE, not the API, so it is NOT a meaningful boundary here.
+      #
+      # Accepted for a local development stack because the alternative (a Serilog sink pushing
+      # to Loki) loses exactly the logs worth having: those from a crash during startup.
+      # A deployed environment must ship logs another way -- see GAP-009-1.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # The alloy user cannot read the Docker socket, which is root:docker on the host VM.
+    user: root
+    restart: unless-stopped
+
 volumes:
   novaleave-db-data:
   novaleave-nuget:
   novaleave-dpkeys:
+  novaleave-prometheus-data:
+  novaleave-grafana-data:
+  novaleave-loki-data:
+  novaleave-alloy-data:

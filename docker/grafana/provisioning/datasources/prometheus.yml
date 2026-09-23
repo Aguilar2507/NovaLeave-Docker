@@ -1,0 +1,25 @@
+# Grafana datasource provisioning (spec_007 T302).
+#
+# Provisioned from a file rather than configured in the UI: a datasource created by clicking
+# lives in the container's volume, disappears on `docker compose down -v`, and cannot be
+# reviewed in a pull request (research.md R-008).
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # Fixed uid so the provisioned dashboard can reference this datasource by name. Without it
+    # Grafana generates a random uid and every panel resolves to "datasource not found".
+    uid: novaleave-prometheus
+    access: proxy
+    # Container-to-container over the Docker network, not via a published host port.
+    url: http://prometheus:9090
+    isDefault: true
+    # Lets `docker compose down -v && up` recreate it cleanly instead of failing on a
+    # datasource that already exists.
+    editable: false
+    jsonData:
+      # Must match prometheus.yml's scrape_interval, or Grafana's $__rate_interval produces
+      # misleading rate() results on short ranges.
+      timeInterval: 15s

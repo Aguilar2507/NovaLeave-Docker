@@ -1,7 +1,7 @@
 # Keep in mind
 
-**Last updated**: 2026-09-22
-**Context**: compiled at the close of `spec_005` (Docker containerization), branch `docker-implementation`
+**Last updated**: 2026-09-23
+**Context**: compiled at the close of `spec_005` (Docker), updated at the close of `spec_007` (metrics), `spec_008` (seed data) and `spec_009` (logs)
 
 Open work, known limitations, and decisions worth not re-litigating. Read this before picking up a task.
 
@@ -73,6 +73,61 @@ So a `Pending` request stays `Pending` forever. The state machine supports expir
 This matters beyond a missing feature: `spec-pending-clarifications.md` records that the PO **replaced auto-escalation with auto-expiry**. Auto-expiry is the mechanism that stops requests stalling on an unresponsive approver — and it is not there.
 
 *Spec 001 tasks T611 (test), T612 (`AutoExpiryJob`), T613 (registration), T614 (E2E), T647 (config robustness) — all unchecked, all genuinely undone.*
+
+## 2b. Observability is half delivered — metrics yes, tracing no
+
+`spec_007` delivered metrics: OpenTelemetry → Prometheus → Grafana, with a provisioned dashboard. **Distributed tracing is still missing**, so `architecture.md`'s *"Metrics and tracing (baseline, not optional)"* is only half met.
+
+Tracing reuses the same OpenTelemetry setup — add tracing instrumentation and an OTLP exporter. **Do not introduce a second framework.** *(GAP-007-1)*
+
+| ID | Gap from spec_007 |
+|----|-------------------|
+| GAP-007-2 | **No alerting.** A stalled approval queue is visible only if somebody looks at the dashboard. Build alerts on `novaleave_vacation_request_oldest_pending_age_seconds` — it is the metric that detects a stalled process |
+| GAP-007-3 | Prometheus retention and storage sizing unconfigured; a deployed instance needs both |
+| GAP-007-4 | §12.1 latency targets are now **measurable but not verified** — and cannot be verified on this stack, because SQL Server runs emulated on arm64 (see item 18) |
+| GAP-007-5 | Approval-duration histogram deferred. Needs either a widened `IStateTransitionAuditService` or an extra database read per transition |
+| GAP-007-6 | **Prometheus is published on port 9090 with no authentication.** It holds every scraped series, so the metric data is readable from the host even though `/metrics` is not. Fine on a localhost dev machine; unacceptable deployed, where Grafana should be the only exposed entry point. Deleting the `ports:` block from the `prometheus` service gives the stricter posture locally |
+
+**Two things these metrics make visible that nothing else did:**
+
+- `novaleave_vacation_request_oldest_pending_age_seconds` will climb without bound, because auto-expiry does not exist (item 2 above). The dashboard now shows that happening instead of it being silent.
+- `microsoft_entityframeworkcore_optimistic_concurrency_failures_total` is currently the **only** live signal for an invariant whose tests are skipped (item 8 below).
+
+## 2d. Logs are aggregated — with a Docker-socket caveat
+
+`spec_009` delivered log aggregation: the app emits CLEF JSON, Grafana Alloy ships every container's stdout to Loki, and Grafana has a provisioned Loki datasource plus a logs panel. Correlating a metric spike with the exact request's logs now works:
+
+```logql
+{service="web"} | json | CorrelationId=`<id>`
+```
+
+| ID | Gap from spec_009 |
+|----|-------------------|
+| **GAP-009-1** 🔒 | **Alloy mounts `/var/run/docker.sock`.** That is effectively root on the Docker daemon — it can start privileged containers and mount the host filesystem. `:ro` restricts writes to the socket *file*, not the API, so it is **not** a real boundary. Accepted locally in exchange for capturing crash-time logs an in-process sink would miss. A deployed environment must ship logs another way |
+| **GAP-009-2** 🔒 | Loki is published on 3100 **with no authentication**, same posture as Prometheus (GAP-007-6). Anyone reaching localhost can read every log line |
+| GAP-009-3 | No log-based alerting; Loki's ruler is unconfigured |
+| GAP-009-4 | Retention is a flat 7 days with no size cap |
+| **GAP-009-5** 🔒 | Request **reasons** are Sensitive/PII (§7.3). Nothing logs them today, but **no test or lint prevents someone adding one** — and logs are now centrally stored and queryable, which raises the cost of that mistake |
+
+**Field-name gotcha**: LogQL's `| json` sanitises CLEF's `@`-prefixed keys — `@l`→`_l`, `@t`→`_t`, `@mt`→`_mt`. Information-level lines have no `_l` at all (CLEF omits it). Enriched properties keep their names.
+
+## 2c. Approving a request charges the employee TWICE
+
+**Found 2026-09-23 while building seed data. This is a live business-logic defect.**
+
+- `CreateRequestHandler.cs:76` calls `employee.ReserveDays(workingDays)`
+- `ApproveRequestHandler.cs:41` then calls `employee.DeductDays(request.RequestedDays)`
+- `Employee.ReserveDays` and `Employee.DeductDays` are **identical**: both do `Balance -= days`
+
+There is no restore between them. So an employee with 15 days who submits a 3-day request and has it approved ends with **9 days, not 12**. The days are deducted on creation and again on approval.
+
+Reject / Cancel / Void each restore once, which correctly undoes a single reservation — so only the approval path is wrong.
+
+**Likely intended design**: `ReserveDays` holds days while Pending; approval converts the hold into a permanent deduction without charging again. Either `ApproveRequestHandler` should not deduct, or `Approve` should restore-then-deduct.
+
+**Why it has gone unnoticed**: no test covers the balance across the full create→approve sequence, and the approver UI does not display the requester's remaining balance.
+
+**Note**: `docs/../spec_008` seed data deliberately does NOT reproduce this — seeded balances are internally consistent (`Balance + held = initial`). Fixing the bug will not require re-seeding. *(GAP-008-1)*
 
 ## 3. Audit immutability is not enforced by the database
 

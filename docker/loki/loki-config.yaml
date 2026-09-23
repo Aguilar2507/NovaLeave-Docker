@@ -1,0 +1,55 @@
+# Loki configuration for the NovaLeave development stack (spec_009).
+#
+# Single-binary, filesystem-backed, no authentication. Sized for one developer's machine, not
+# for a deployed environment -- see GAP-009-2.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  # Loki is chatty at info; its own logs would drown the application's in `compose logs`.
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    # Loki 3.x requires the v13 schema with the tsdb index. Older examples using boltdb-shipper
+    # or schema v11 fail to start against this version.
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # 7 days, matching the Prometheus retention set in compose.yaml so metrics and logs cover the
+  # same window -- correlating a spike with its logs is the point, and mismatched retention
+  # silently breaks that.
+  retention_period: 168h
+  # Alloy replays container logs on restart, including entries older than Loki's default
+  # rejection window. Without this a stack restart drops the backlog with a confusing 400.
+  reject_old_samples: false
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+# Development only: no analytics phoning home from a developer's machine.
+analytics:
+  reporting_enabled: false

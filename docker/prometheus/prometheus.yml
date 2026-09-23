@@ -1,0 +1,32 @@
+# Prometheus scrape configuration for the NovaLeave development stack (spec_007 T301).
+#
+# Mounted read-only into the prometheus container. Edit here, not inside the container:
+# anything changed in the container is lost on the next `docker compose down -v`.
+
+global:
+  # Matches VacationRequestMetricsCollector's 15s refresh interval. Scraping faster would
+  # resample the same cached snapshot; slower would make the dashboard lag the queue.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: development
+
+scrape_configs:
+  # The application, scraped on web:9464 -- the metrics-only listener.
+  #
+  # Port 9464 is NOT published to the host by compose.yaml, so /metrics exists only on this
+  # network. It deliberately is not scraped on 8080: that port IS published, and publishing a
+  # port publishes every path on it, which would put /metrics on the host
+  # (FR-018, research.md R-006 amendment).
+  - job_name: novaleave-web
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:9464"]
+        labels:
+          service: novaleave-web
+
+  # Prometheus scraping itself. Cheap, and it distinguishes "the app stopped reporting" from
+  # "Prometheus stopped working", which are very different problems.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

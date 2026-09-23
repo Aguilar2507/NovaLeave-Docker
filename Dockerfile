@@ -52,7 +52,7 @@ RUN dotnet publish src/NovaLeave.Presentation.Web/NovaLeave.Presentation.Web.csp
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /src
 
-ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_HTTP_PORTS=8080;9464
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 # macOS bind mounts do not deliver inotify events into the container, so the file
@@ -85,8 +85,16 @@ RUN dotnet restore NovaLeave.slnx
 # Runs as root deliberately: dotnet watch writes into the bind-mounted source tree, and
 # reconciling host UIDs across macOS and Linux costs more than it buys for a local
 # development container (research.md R-007).
+# --no-launch-profile is required, not cosmetic. Properties/launchSettings.json is a
+# developer-machine artifact whose "https" profile binds https://localhost:7121; inside the
+# container that fails hard with "No server certificate was specified" and the app never starts.
+# Ignoring launch profiles lets ASPNETCORE_HTTP_PORTS (set by compose.yaml) bind both listeners:
+# 8080 for the app and 9464 for /metrics only.
+#
+# --urls is deliberately NOT used: it overrides ASPNETCORE_HTTP_PORTS, which would collapse the
+# two listeners back into one and re-expose metrics on the published port (spec_007 T401).
 CMD ["dotnet", "watch", "--project", "src/NovaLeave.Presentation.Web/NovaLeave.Presentation.Web.csproj", \
-     "run", "--urls", "http://0.0.0.0:8080"]
+     "run", "--no-launch-profile"]
 
 # ---- final ------------------------------------------------------------------
 FROM base AS final

@@ -17,6 +17,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.10" />
+    <!-- spec_007: metric INSTRUMENTS only. NovaLeaveMetrics and the Phase 2 decorators use
+         System.Diagnostics.Metrics, which is in-box, so no OpenTelemetry package is needed
+         here. The OpenTelemetry wiring itself is a composition-root concern and lives in
+         NovaLeave.Presentation.Web. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

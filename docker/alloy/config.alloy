@@ -1,0 +1,68 @@
+// Grafana Alloy: ships container logs to Loki (spec_009).
+//
+// WHY AN AGENT RATHER THAN A SERILOG SINK
+// The application writes CLEF JSON to stdout and knows nothing about Loki. Alloy reads the
+// container's stdout through the Docker API and forwards it. That means logs survive failures
+// the application cannot report on: a crash during startup, a DI resolution error, an
+// unhandled exception on the way down. This session has already hit one of those -- the app
+// once died with "Unable to configure HTTPS endpoint" before any sink could have flushed.
+//
+// LABEL DISCIPLINE -- read before adding a label.
+// Loki labels behave like Prometheus labels: every distinct combination is a separate stream
+// held in memory. `service` and `container` are bounded (one value per Compose service).
+// CorrelationId, RequestId, request ids and user identifiers are NOT labels and must not
+// become labels -- they stay inside the JSON line and are queried with `| json`, which costs
+// nothing at ingest. This mirrors research.md R-005 for metrics.
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// Discover every container in this Compose project.
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "10s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Docker reports names with a leading slash: "/novaleave-web-1".
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+
+  // The Compose service name: web, db, prometheus, grafana, loki, alloy.
+  // Compose records this as a container LABEL, which Docker discovery exposes as
+  // __meta_docker_container_label_com_docker_compose_service. The shorter
+  // __meta_docker_compose_service does not exist -- using it silently produces no label at
+  // all, and Loki then falls back to deriving service_name from the container name.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  // Only this project's containers, so an unrelated container on the same machine does not
+  // end up in NovaLeave's log store.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "novaleave"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { job = "novaleave" }
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

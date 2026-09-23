@@ -50,6 +50,51 @@ docker run --rm -v "$PWD":/src -w /src mcr.microsoft.com/dotnet/sdk:10.0 \
 
 ---
 
+## Observability
+
+The stack ships with metrics collection and dashboards:
+
+| | |
+|---|---|
+| **Grafana** | http://localhost:3000 — dashboards and logs (credentials in `.env`) |
+| **Prometheus** | http://localhost:9090 — metrics query engine and scrape status |
+| **Loki** | http://localhost:3100 — log store (API only; read logs through Grafana) |
+
+Use **Grafana to look at things** and **Prometheus to ask questions**. Prometheus opens on an empty query box by design — it is a database, not a dashboard, and shows nothing until you type a query. Its `/targets` page is where you check that collection is healthy.
+
+Four dashboards are provisioned automatically into the **NovaLeave** folder:
+
+| Dashboard | Source | Covers |
+|---|---|---|
+| **NovaLeave — Overview** | ours | Vacation-request transitions, pending queue depth, oldest waiting request, request rate, latency, errors, EF Core, memory |
+| **ASP.NET Core** | .NET team ([19924](https://grafana.com/grafana/dashboards/19924)) | HTTP depth: connections, protocol, TLS, top endpoints |
+| **ASP.NET Core Endpoint** | .NET team ([19925](https://grafana.com/grafana/dashboards/19925)) | Per-route drill-down by method and route |
+| **.NET Runtime** | ours | CPU, memory, GC by generation, allocation rate, thread pool, lock contention, exceptions, JIT |
+
+Dashboards are provisioned from files, so **edits made in the Grafana UI are discarded on restart** — change the JSON in `docker/grafana/provisioning/dashboards/` instead.
+
+📖 **[Metrics catalogue](.specify/specs/007-prometheus-observability/metrics-catalogue.md)** — every metric, its labels, example queries, and the labels that must never be added.
+
+### Logs
+
+All container logs are shipped to Loki by Grafana Alloy and are queryable in Grafana under **Explore → Loki**:
+
+```logql
+{service="web"}                                        # application logs
+{service="web"} | json | _l =~ `Warning|Error|Fatal`   # warnings and above
+{service="web"} | json | CorrelationId=`<id>`          # one request, end to end
+```
+
+That last query is the point: every request carries an `X-Correlation-ID`, so you can go from a latency spike on a dashboard to the exact request's log lines.
+
+The application logs **CLEF JSON** inside the container so fields stay queryable. `docker compose logs -f web` still works — pipe it through `jq` for readability. Outside Docker the output stays plain text.
+
+> Note: `| json` renames CLEF's `@`-prefixed keys — `@l` becomes `_l`, `@t` becomes `_t`, `@mt` becomes `_mt`. Enriched properties like `CorrelationId` keep their names. Information-level lines have no `_l` at all.
+
+The application's own `/metrics` endpoint is served on an unpublished port and is deliberately **not** reachable from your machine; only Prometheus can scrape it. See [ADR-002](docs/adr/ADR-002-prometheus-observability.md).
+
+---
+
 ## Project structure
 
 ```text
@@ -80,6 +125,22 @@ Seeded automatically in `Development`. Password for all: `Test123!@#`.
 
 Development-only credentials. They exist nowhere but a disposable local container.
 
+### Seeded vacation requests
+
+**13 requests across all six statuses** are seeded alongside the accounts, so the approver queue, request history and the Grafana business panels all have content on a fresh database.
+
+| Owner | Initial balance | Requests | Final balance |
+|---|---|---|---|
+| Juan Pérez (`user@`) | 15 | 2 pending, 1 approved, 1 rejected, 1 cancelled | 3 |
+| Pedro López (`employee@`) | 12 | 1 pending, 1 approved, 1 expired, 1 voided | 5 |
+| Carlos Rodríguez (`manager@`) | 20 | 1 pending, 1 approved, 1 rejected, 1 cancelled | 12 |
+| María García (`approver@`) | 10 | — (she approves) | 10 |
+| Ana Martínez (`inactive@`) | 10 | — (inactive accounts cannot reserve days) | 10 |
+
+Balances reconcile: `balance + days held by pending/approved requests = initial balance`.
+
+Seeding is idempotent — restarting will not duplicate data. `docker compose down -v` resets and re-seeds. Details in [spec 008](.specify/specs/008-development-seed-data/spec_008-development-seed-data.md).
+
 ---
 
 ## Documentation
@@ -90,6 +151,7 @@ Development-only credentials. They exist nowhere but a disposable local containe
 | [Constitution](.specify/memory/constitution.md) | Binding architecture, security and process rules |
 | [Architecture](.specify/specs/common/architecture.md) | Shared technical context and stack |
 | [Docker quickstart](.specify/specs/005-docker-containerization/quickstart.md) | Running the stack locally |
+| [Metrics catalogue](.specify/specs/007-prometheus-observability/metrics-catalogue.md) | Every exported metric, with example queries |
 | [ADR index](docs/adr/) | Recorded architectural decisions |
 
 Specifications live under `.specify/specs/`, numbered by feature.

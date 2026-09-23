@@ -1,0 +1,28 @@
+# Grafana Loki datasource (spec_009).
+#
+# Sits alongside prometheus.yml in the same provisioning directory, so both are created on a
+# fresh stack with no manual setup.
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: novaleave-loki
+    access: proxy
+    url: http://loki:3100
+    # Prometheus stays the default: metrics are the more common starting point, and you
+    # usually arrive at logs *from* a metric.
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000
+      # Jump from a log line to the matching trace once tracing exists (GAP-007-1).
+      # Harmless until then: the field simply never matches.
+      derivedFields:
+        - name: CorrelationId
+          # CLEF writes enrichers as top-level properties, so CorrelationId appears as
+          # "CorrelationId":"<32 hex chars>" in the raw line.
+          matcherRegex: '"CorrelationId":"([^"]+)"'
+          url: '$${__value.raw}'
+          datasourceUid: novaleave-loki

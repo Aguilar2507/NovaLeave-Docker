@@ -27,6 +27,20 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <!-- spec_009: CLEF console output for Loki. Available transitively via Serilog.AspNetCore,
+         but referenced explicitly because the code now depends on it directly and a transitive
+         dependency can disappear on any upgrade of the parent package. -->
+    <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <!-- spec_007: OpenTelemetry metrics wiring. Lives here because Program.cs is the
+         composition root (Constitution 2.I's sole exception).
+         The Prometheus exporter is beta by design of the OpenTelemetry project: its
+         Prometheus compatibility spec is not declared stable. Risk accepted and recorded in
+         research.md R-001 and ADR-002.
+         EF Core instrumentation is deliberately NOT referenced: it is also beta, and EF Core
+         emits a native "Microsoft.EntityFrameworkCore" meter subscribed to by name instead,
+         keeping this feature to a single pre-release dependency. -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.19.1-beta.1" />
   </ItemGroup>
 
 </Project>

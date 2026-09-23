@@ -1,0 +1,19 @@
+# Grafana dashboard provider (spec_007 T303).
+#
+# Loads every dashboard JSON file in this directory at startup, so the NovaLeave dashboard is
+# simply present on a fresh stack with no manual setup (US1 scenario 2).
+
+apiVersion: 1
+
+providers:
+  - name: NovaLeave
+    orgId: 1
+    folder: NovaLeave
+    type: file
+    # The repository is the source of truth. A dashboard edited in the UI is NOT written back
+    # here, and is overwritten on restart -- export the JSON and commit it instead.
+    disableDeletion: false
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
