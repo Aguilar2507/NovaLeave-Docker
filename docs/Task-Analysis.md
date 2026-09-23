@@ -1,585 +1,781 @@
-# Remediation Tasks Analysis
+# Task Analysis
 
 **Project:** NovaLeave  
-**Analysis date:** 2026-09-22  
-**Scope:** Blocking issue, first missing business functionality issue, first security finding, first quality or verification debt issue, and first recorded decision.  
-**Status:** Analysis completed; implementation not started.
+**Analysis date:** 2026-09-23  
+**Scope:** Point-by-point analysis of all 23 findings listed in `docs/Keep-in-mind.md`.  
+**Status:** Analysis only; no implementation performed.
 
-> This document covers the first issue listed under **Blocking**, the first issue listed under **Business functionality that is missing**, the first issue listed under **Security findings**, the first issue listed under **Quality or verification debt**, and the first item under **Decisions already made** in `docs/Keep-in-mind.md`. Later findings remain outside the current scope.
+> This document analyzes the documented issues individually. It does not modify the application, implement fixes, or assume that every unchecked task is still missing. Some findings may be stale and require confirmation against the current source tree.
 
 ## Contents
 
-- [Remediation Tasks Analysis](#remediation-tasks-analysis)
+- [Task Analysis](#task-analysis)
   - [Contents](#contents)
-  - [1. Blocking: Presentation Test Suite](#1-blocking-presentation-test-suite)
-    - [1.1 Current Test State](#11-current-test-state)
-    - [1.2 Identified Root Causes](#12-identified-root-causes)
-    - [1.3 Blocking Impact](#13-blocking-impact)
-    - [1.4 Specification Reference](#14-specification-reference)
-    - [1.5 Remediation Necessity](#15-remediation-necessity)
-    - [1.6 Consequences of Not Implementing the Remediation](#16-consequences-of-not-implementing-the-remediation)
-    - [1.7 Benefits of Implementing the Remediation](#17-benefits-of-implementing-the-remediation)
-    - [1.8 Conclusion](#18-conclusion)
-  - [2. Business Functionality Missing: Auto-expiry](#2-business-functionality-missing-auto-expiry)
-    - [2.1 Current State](#21-current-state)
-    - [2.2 Identified Root Cause](#22-identified-root-cause)
-    - [2.3 Blocking Impact](#23-blocking-impact)
-    - [2.4 Specification Reference](#24-specification-reference)
-    - [2.5 Recommended Implementation](#25-recommended-implementation)
-    - [2.6 Remediation Necessity](#26-remediation-necessity)
-    - [2.7 Consequences of Not Implementing the Remediation](#27-consequences-of-not-implementing-the-remediation)
-    - [2.8 Benefits of Implementing the Remediation](#28-benefits-of-implementing-the-remediation)
-    - [2.9 Conclusion](#29-conclusion)
-  - [3. Security Finding: CDN Scripts Without Subresource Integrity](#3-security-finding-cdn-scripts-without-subresource-integrity)
-    - [3.1 Current State](#31-current-state)
-    - [3.2 Identified Root Cause](#32-identified-root-cause)
-    - [3.3 Security Impact](#33-security-impact)
-    - [3.4 Specification Reference](#34-specification-reference)
-    - [3.5 Recommended Remediation](#35-recommended-remediation)
-    - [3.6 Remediation Necessity](#36-remediation-necessity)
-    - [3.7 Consequences of Not Implementing the Remediation](#37-consequences-of-not-implementing-the-remediation)
-    - [3.8 Benefits of Implementing the Remediation](#38-benefits-of-implementing-the-remediation)
-    - [3.9 Conclusion](#39-conclusion)
-  - [4. Quality or Verification Debt: E2E Test Suite](#4-quality-or-verification-debt-e2e-test-suite)
-    - [4.1 Current State](#41-current-state)
-    - [4.2 Identified Root Cause](#42-identified-root-cause)
-    - [4.3 Verification Impact](#43-verification-impact)
-    - [4.4 Specification Reference](#44-specification-reference)
-    - [4.5 Recommended Remediation](#45-recommended-remediation)
-    - [4.6 Remediation Necessity](#46-remediation-necessity)
-    - [4.7 Consequences of Not Implementing the Remediation](#47-consequences-of-not-implementing-the-remediation)
-    - [4.8 Benefits of Implementing the Remediation](#48-benefits-of-implementing-the-remediation)
-    - [4.9 Conclusion](#49-conclusion)
-  - [5. Decision: Do Not Benchmark on the Docker Stack](#5-decision-do-not-benchmark-on-the-docker-stack)
-    - [5.1 Current Decision](#51-current-decision)
-    - [5.2 Technical Rationale](#52-technical-rationale)
-    - [5.3 Project Impact](#53-project-impact)
-    - [5.4 Reference and Constraint](#54-reference-and-constraint)
-    - [5.5 Recommended Application](#55-recommended-application)
-    - [5.6 Necessity of Respecting the Decision](#56-necessity-of-respecting-the-decision)
-    - [5.7 Consequences of Ignoring the Decision](#57-consequences-of-ignoring-the-decision)
-    - [5.8 Benefits of Respecting the Decision](#58-benefits-of-respecting-the-decision)
-    - [5.9 Conclusion](#59-conclusion)
+  - [1. Presentation Test Suite Is Non-Deterministic](#1-presentation-test-suite-is-non-deterministic)
+    - [1.1 Current Issue](#11-current-issue)
+    - [1.2 Benefits of Resolution](#12-benefits-of-resolution)
+    - [1.3 Consequences of Not Resolving](#13-consequences-of-not-resolving)
+    - [1.4 Necessity](#14-necessity)
+    - [1.5 Conclusion](#15-conclusion)
+    - [1.6 Proposed Solution](#16-proposed-solution)
+  - [2. Auto-Expiry Is Missing](#2-auto-expiry-is-missing)
+    - [2.1 Current Issue](#21-current-issue)
+    - [2.2 Benefits of Resolution](#22-benefits-of-resolution)
+    - [2.3 Consequences of Not Resolving](#23-consequences-of-not-resolving)
+    - [2.4 Necessity](#24-necessity)
+    - [2.5 Conclusion](#25-conclusion)
+    - [2.6 Proposed Solution](#26-proposed-solution)
+  - [3. Audit Immutability Is Not Database-Enforced](#3-audit-immutability-is-not-database-enforced)
+    - [3.1 Current Issue](#31-current-issue)
+    - [3.2 Benefits of Resolution](#32-benefits-of-resolution)
+    - [3.3 Consequences of Not Resolving](#33-consequences-of-not-resolving)
+    - [3.4 Necessity](#34-necessity)
+    - [3.5 Conclusion](#35-conclusion)
+    - [3.6 Proposed Solution](#36-proposed-solution)
+  - [4. Audit History Is Not Available](#4-audit-history-is-not-available)
+    - [4.1 Current Issue](#41-current-issue)
+    - [4.2 Benefits of Resolution](#42-benefits-of-resolution)
+    - [4.3 Consequences of Not Resolving](#43-consequences-of-not-resolving)
+    - [4.4 Necessity](#44-necessity)
+    - [4.5 Conclusion](#45-conclusion)
+    - [4.6 Proposed Solution](#46-proposed-solution)
+  - [5. Destructive-Action Confirmation Is Reported Missing](#5-destructive-action-confirmation-is-reported-missing)
+    - [5.1 Current Issue](#51-current-issue)
+    - [5.2 Benefits of Resolution](#52-benefits-of-resolution)
+    - [5.3 Consequences of Not Resolving](#53-consequences-of-not-resolving)
+    - [5.4 Necessity](#54-necessity)
+    - [5.5 Conclusion](#55-conclusion)
+    - [5.6 Proposed Solution](#56-proposed-solution)
+  - [6. CDN Scripts Lack Subresource Integrity](#6-cdn-scripts-lack-subresource-integrity)
+    - [6.1 Current Issue](#61-current-issue)
+    - [6.2 Benefits of Resolution](#62-benefits-of-resolution)
+    - [6.3 Consequences of Not Resolving](#63-consequences-of-not-resolving)
+    - [6.4 Necessity](#64-necessity)
+    - [6.5 Conclusion](#65-conclusion)
+    - [6.6 Proposed Solution](#66-proposed-solution)
+  - [7. Security Headers Are Missing](#7-security-headers-are-missing)
+    - [7.1 Current Issue](#71-current-issue)
+    - [7.2 Benefits of Resolution](#72-benefits-of-resolution)
+    - [7.3 Consequences of Not Resolving](#73-consequences-of-not-resolving)
+    - [7.4 Necessity](#74-necessity)
+    - [7.5 Conclusion](#75-conclusion)
+    - [7.6 Proposed Solution](#76-proposed-solution)
+  - [8. Concurrency Protection Is Untested](#8-concurrency-protection-is-untested)
+    - [8.1 Current Issue](#81-current-issue)
+    - [8.2 Benefits of Resolution](#82-benefits-of-resolution)
+    - [8.3 Consequences of Not Resolving](#83-consequences-of-not-resolving)
+    - [8.4 Necessity](#84-necessity)
+    - [8.5 Conclusion](#85-conclusion)
+    - [8.6 Proposed Solution](#86-proposed-solution)
+  - [9. Authorization and IDOR Coverage Is Incomplete](#9-authorization-and-idor-coverage-is-incomplete)
+    - [9.1 Current Issue](#91-current-issue)
+    - [9.2 Benefits of Resolution](#92-benefits-of-resolution)
+    - [9.3 Consequences of Not Resolving](#93-consequences-of-not-resolving)
+    - [9.4 Necessity](#94-necessity)
+    - [9.5 Conclusion](#95-conclusion)
+    - [9.6 Proposed Solution](#96-proposed-solution)
+  - [10. E2E Testing Is Not Operational](#10-e2e-testing-is-not-operational)
+    - [10.1 Current Issue](#101-current-issue)
+    - [10.2 Benefits of Resolution](#102-benefits-of-resolution)
+    - [10.3 Consequences of Not Resolving](#103-consequences-of-not-resolving)
+    - [10.4 Necessity](#104-necessity)
+    - [10.5 Conclusion](#105-conclusion)
+    - [10.6 Proposed Solution](#106-proposed-solution)
+  - [11. Accessibility Has Not Been Verified](#11-accessibility-has-not-been-verified)
+    - [11.1 Current Issue](#111-current-issue)
+    - [11.2 Benefits of Resolution](#112-benefits-of-resolution)
+    - [11.3 Consequences of Not Resolving](#113-consequences-of-not-resolving)
+    - [11.4 Necessity](#114-necessity)
+    - [11.5 Conclusion](#115-conclusion)
+    - [11.6 Proposed Solution](#116-proposed-solution)
+  - [12. Performance Targets Are Unmeasured](#12-performance-targets-are-unmeasured)
+    - [12.1 Current Issue](#121-current-issue)
+    - [12.2 Benefits of Resolution](#122-benefits-of-resolution)
+    - [12.3 Consequences of Not Resolving](#123-consequences-of-not-resolving)
+    - [12.4 Necessity](#124-necessity)
+    - [12.5 Conclusion](#125-conclusion)
+    - [12.6 Proposed Solution](#126-proposed-solution)
+  - [13. Code Coverage Has Not Been Measured](#13-code-coverage-has-not-been-measured)
+    - [13.1 Current Issue](#131-current-issue)
+    - [13.2 Benefits of Resolution](#132-benefits-of-resolution)
+    - [13.3 Consequences of Not Resolving](#133-consequences-of-not-resolving)
+    - [13.4 Necessity](#134-necessity)
+    - [13.5 Conclusion](#135-conclusion)
+    - [13.6 Proposed Solution](#136-proposed-solution)
+  - [14. Rate Limiting Is Unverified](#14-rate-limiting-is-unverified)
+    - [14.1 Current Issue](#141-current-issue)
+    - [14.2 Benefits of Resolution](#142-benefits-of-resolution)
+    - [14.3 Consequences of Not Resolving](#143-consequences-of-not-resolving)
+    - [14.4 Necessity](#144-necessity)
+    - [14.5 Conclusion](#145-conclusion)
+    - [14.6 Proposed Solution](#146-proposed-solution)
+  - [15. Infrastructure Test Project Is Missing](#15-infrastructure-test-project-is-missing)
+    - [15.1 Current Issue](#151-current-issue)
+    - [15.2 Benefits of Resolution](#152-benefits-of-resolution)
+    - [15.3 Consequences of Not Resolving](#153-consequences-of-not-resolving)
+    - [15.4 Necessity](#154-necessity)
+    - [15.5 Conclusion](#155-conclusion)
+    - [15.6 Proposed Solution](#156-proposed-solution)
+  - [16. Required Documentation Directories Are Missing](#16-required-documentation-directories-are-missing)
+    - [16.1 Current Issue](#161-current-issue)
+    - [16.2 Benefits of Resolution](#162-benefits-of-resolution)
+    - [16.3 Consequences of Not Resolving](#163-consequences-of-not-resolving)
+    - [16.4 Necessity](#164-necessity)
+    - [16.5 Conclusion](#165-conclusion)
+    - [16.6 Proposed Solution](#166-proposed-solution)
+  - [17. Documentation Language Is Inconsistent](#17-documentation-language-is-inconsistent)
+    - [17.1 Current Issue](#171-current-issue)
+    - [17.2 Benefits of Resolution](#172-benefits-of-resolution)
+    - [17.3 Consequences of Not Resolving](#173-consequences-of-not-resolving)
+    - [17.4 Necessity](#174-necessity)
+    - [17.5 Conclusion](#175-conclusion)
+    - [17.6 Proposed Solution](#176-proposed-solution)
+  - [18. Docker Must Not Be Used for Official Benchmarks](#18-docker-must-not-be-used-for-official-benchmarks)
+    - [18.1 Current Issue](#181-current-issue)
+    - [18.2 Benefits of Respecting the Decision](#182-benefits-of-respecting-the-decision)
+    - [18.3 Consequences of Ignoring the Decision](#183-consequences-of-ignoring-the-decision)
+    - [18.4 Necessity](#184-necessity)
+    - [18.5 Conclusion](#185-conclusion)
+    - [18.6 Proposed Solution](#186-proposed-solution)
+  - [19. SQL Retry Strategy Must Remain Disabled](#19-sql-retry-strategy-must-remain-disabled)
+    - [19.1 Current Issue](#191-current-issue)
+    - [19.2 Benefits of Respecting the Decision](#192-benefits-of-respecting-the-decision)
+    - [19.3 Consequences of Ignoring the Decision](#193-consequences-of-ignoring-the-decision)
+    - [19.4 Necessity](#194-necessity)
+    - [19.5 Conclusion](#195-conclusion)
+    - [19.6 Proposed Solution](#196-proposed-solution)
+  - [20. Docker Appsettings File Must Not Be Added](#20-docker-appsettings-file-must-not-be-added)
+    - [20.1 Current Issue](#201-current-issue)
+    - [20.2 Benefits of Respecting the Decision](#202-benefits-of-respecting-the-decision)
+    - [20.3 Consequences of Ignoring the Decision](#203-consequences-of-ignoring-the-decision)
+    - [20.4 Necessity](#204-necessity)
+    - [20.5 Conclusion](#205-conclusion)
+    - [20.6 Proposed Solution](#206-proposed-solution)
+  - [21. Startup Migrations Are Development-Only](#21-startup-migrations-are-development-only)
+    - [21.1 Current Issue](#211-current-issue)
+    - [21.2 Benefits of Resolution](#212-benefits-of-resolution)
+    - [21.3 Consequences of Not Resolving](#213-consequences-of-not-resolving)
+    - [21.4 Necessity](#214-necessity)
+    - [21.5 Conclusion](#215-conclusion)
+    - [21.6 Proposed Solution](#216-proposed-solution)
+  - [22. Host Builds Require .NET 10 or Docker](#22-host-builds-require-net-10-or-docker)
+    - [22.1 Current Issue](#221-current-issue)
+    - [22.2 Benefits of Resolution](#222-benefits-of-resolution)
+    - [22.3 Consequences of Not Resolving](#223-consequences-of-not-resolving)
+    - [22.4 Necessity](#224-necessity)
+    - [22.5 Conclusion](#225-conclusion)
+    - [22.6 Proposed Solution](#226-proposed-solution)
+  - [23. Housekeeping and Naming Deviations](#23-housekeeping-and-naming-deviations)
+    - [23.1 Current Issue](#231-current-issue)
+    - [23.2 Benefits of Resolution](#232-benefits-of-resolution)
+    - [23.3 Consequences of Not Resolving](#233-consequences-of-not-resolving)
+    - [23.4 Necessity](#234-necessity)
+    - [23.5 Conclusion](#235-conclusion)
+    - [23.6 Proposed Solution](#236-proposed-solution)
+  - [Overall Conclusion](#overall-conclusion)
 
-## 1. Blocking: Presentation Test Suite
+## 1. Presentation Test Suite Is Non-Deterministic
 
-### 1.1 Current Test State
+### 1.1 Current Issue
 
-`NovaLeave.Presentation.Tests` contains 49 presentation and integration tests, but approximately 24 to 26 fail inconsistently between identical runs.
+`NovaLeave.Presentation.Tests` has 49 tests, with approximately 24 to 26 failures that vary between identical executions. The documented causes are a shared InMemory database named `NovaLeaveTestDb`, fixture data contamination, secondary DI containers, and invalid fixture roles such as `Employee` and `Admin` instead of the application roles `User` and `Approver`.
 
-The failures are non-deterministic: the result can change depending on test order, parallel execution, and which fixture initializes first. Tests may pass in isolation and fail when the complete suite runs.
+### 1.2 Benefits of Resolution
 
-This means the suite cannot currently provide reliable evidence about the behavior of authentication, authorization, session handling, vacation-request workflows, or approver flows.
+Isolated fixtures and aligned roles would make test results deterministic, restore reliable CI validation, reduce diagnostic time, and provide trustworthy regression protection for authentication, authorization, sessions, and vacation workflows.
 
-The available evidence points primarily to test infrastructure defects rather than confirmed defects in production business logic.
+### 1.3 Consequences of Not Resolving
 
-### 1.2 Identified Root Causes
+The project cannot distinguish production defects from test contamination. CI may fail or pass unpredictably, real regressions may remain hidden, and developers may change correct production code in response to false failures.
 
-**Shared in-memory database with a fixed name.**
+### 1.4 Necessity
 
-In the `Testing` environment, the application uses:
+**100%.** This is a direct quality gate blocker and must be resolved before relying on the presentation suite for acceptance evidence.
 
-```csharp
-options.UseInMemoryDatabase("NovaLeaveTestDb")
-```
+### 1.5 Conclusion
 
-The fixed name allows different fixtures, including `AuthTestFixture` and `VacationTestFixture`, to resolve the same process-wide InMemory store.
+The application may run correctly manually, but its primary integration safety net is unreliable. The test infrastructure must be repaired without changing business behavior. Reference: [spec_006](../.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md).
 
-As a result, test data can leak between fixtures. Users, employees, roles, and vacation requests created by one fixture may affect another fixture's setup and assertions.
+### 1.6 Proposed Solution
 
-The problem is reinforced by seeding guards such as:
+Give each fixture an isolated database root or unique database name, seed through the application's real service provider, and replace obsolete roles with `User` and `Approver`. Remove order-dependent seed guards, then verify 49/49 tests across ten consecutive runs without changing production behavior.
 
-```csharp
-if (await db.Employees.AnyAsync())
-{
-    return;
-}
-```
+## 2. Auto-Expiry Is Missing
 
-When another fixture has already inserted an employee, the current fixture may skip its required initialization.
+### 2.1 Current Issue
 
-**Misaligned or non-existent roles.**
+`VacationRequest.Expire()` exists and has domain tests, but no production service invokes it. There is no registered `IHostedService`, `AutoExpiryJob`, or operational binding for `EXPIRY_DAYS`. Pending requests can remain pending forever.
 
-The application contract defines only these roles:
+### 2.2 Benefits of Resolution
 
-- `User`.
-- `Approver`.
+Implementing auto-expiry would complete the request lifecycle, release reserved days, remove stale approval items, create the required audit event, and enforce the Product Owner decision that expiry replaces auto-escalation.
 
-The test fixtures also attempt to use:
+### 2.3 Consequences of Not Resolving
 
-- `Employee`.
-- `Admin`.
+Pending requests may remain unresolved indefinitely, employees may lose access to reserved balance, approver queues may contain stale work, and the configured `EXPIRY_DAYS` value will have no effect.
 
-Those roles do not match the current application contract. `Employee` is not the application's employee role, and `Admin` is not part of the defined MVP role model.
+### 2.4 Necessity
 
-This can produce errors such as `Role EMPLOYEE does not exist` and causes authorization tests to represent a different security model from the production application.
+**98%.** This is a genuine missing business capability. It is slightly below 100% only because ordinary request processing still works without it.
 
-A related test setup problem is the use of `BuildServiceProvider()` inside fixture configuration, which creates a secondary dependency-injection container and can cause seeded services and database contexts to differ from those used by the application under test.
+### 2.5 Conclusion
 
-### 1.3 Blocking Impact
+The domain supports expiry, but the application does not operationalize it. The fix should include configuration validation, an idempotent hosted process, atomic balance release and auditing, and integration and E2E tests. Reference: `FR-016`, `T611`, `T612`, `T613`, `T614`, and `T647` in spec 001.
 
-This issue blocks reliable quality validation.
+### 2.6 Proposed Solution
 
-The project's CI quality gate cannot be trusted while the presentation test suite is red and non-deterministic. A build may succeed while the test result changes between executions, making it impossible to determine whether a failure is caused by:
+Implement and register a scoped background service that validates `EXPIRY_DAYS`, selects eligible pending requests using working-day rules, transitions them atomically, restores reserved balance, and writes one audit event per transition. Add deterministic integration tests for expiry, invalid configuration, idempotency, and the full E2E status change.
 
-- Production code.
-- Test data contamination.
-- Fixture initialization order.
-- Incorrect test roles.
-- A real regression.
+## 3. Audit Immutability Is Not Database-Enforced
 
-The suite is also the main regression protection for authentication and vacation-request behavior. Until it is deterministic, future changes could either appear broken because of contaminated test data or introduce real defects that remain hidden among unrelated failures.
+### 3.1 Current Issue
 
-For this reason, the test suite must be stabilized before using it as acceptance evidence or proceeding with other high-risk work such as auto-expiry, concurrency, or security hardening.
+Application code treats `AuditRecord` as immutable, but the database has no trigger or other guard preventing direct `UPDATE` or `DELETE` operations.
 
-### 1.4 Specification Reference
+### 3.2 Benefits of Resolution
 
-The complete diagnosis, requirements, and success criteria are documented in:
+Database enforcement would protect the audit trail even when accessed outside the application, support compliance, and ensure that operational history cannot be silently rewritten.
 
-[spec_006 - Integration Test Isolation and Role Alignment](../.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md)
+### 3.3 Consequences of Not Resolving
 
-The specification defines the following target outcomes:
+Anyone with database access could alter or delete audit records. Investigations, compliance reviews, and security evidence could therefore rely on data that is no longer trustworthy.
 
-- `NovaLeave.Presentation.Tests` passes 49/49 tests.
-- Ten consecutive executions produce the same result.
-- Test execution order does not affect the result.
-- Fixtures use isolated database instances.
-- Fixtures use only `User` and `Approver`.
-- No application behavior changes are required to repair the test infrastructure.
+### 3.4 Necessity
 
-### 1.5 Remediation Necessity
+**95%.** The risk is compliance and security significant, especially before any production deployment.
 
-**Recommended necessity: 100%**
+### 3.5 Conclusion
 
-This issue is strictly necessary to resolve because it prevents the project from establishing trustworthy evidence of correctness. The remediation is localized to test isolation, fixture initialization, and role alignment, but its effect is project-wide because it restores the quality gate and regression protection for critical workflows.
+Application-level immutability is insufficient against direct database access. A reviewed migration with database-level protection and SQL Server integration tests is justified. Reference: spec 001 task `T640`.
 
-No production functionality should be considered fully verified until this issue is resolved and the presentation suite produces deterministic results.
+### 3.6 Proposed Solution
 
-### 1.6 Consequences of Not Implementing the Remediation
+Create the `ProtectAuditRecordImmutability` migration with SQL Server guards against `UPDATE` and `DELETE`. Test both operations against a real SQL Server database and verify that rejected attempts are observable as security events where required.
 
-If this remediation is not implemented, the application may continue to work during normal manual execution, but the project will not have reliable automated evidence that it continues to work after changes.
+## 4. Audit History Is Not Available
 
-The main consequences are:
+### 4.1 Current Issue
 
-- CI/CD results will remain unreliable because the same code can produce different test outcomes.
-- Real regressions in authentication, authorization, sessions, roles, and vacation-request workflows may remain hidden.
-- False failures caused by shared test data will continue to consume investigation and development time.
-- Developers may modify correct production code in response to failures caused by test contamination.
-- Future features will be built on top of an unstable validation baseline.
-- The project will not be able to confidently satisfy its quality gate or certify the affected workflows.
+Audit records are written, but `ListAuditQuery`, its handler, and the `AuditHistory` actions and views are not available according to the documented review. Retention and PII-masking tests are also missing.
 
-The absence of this fix does not necessarily prevent the application from starting or serving users. It prevents the team from reliably proving that the application remains correct as the codebase evolves.
+### 4.2 Benefits of Resolution
 
-### 1.7 Benefits of Implementing the Remediation
+A protected audit history would provide traceability for request decisions, help investigate incidents, support compliance review, and expose whether sensitive reasons are being improperly stored or displayed.
 
-Implementing the remediation will restore the test suite as a dependable quality control mechanism.
+### 4.3 Consequences of Not Resolving
 
-The main benefits are:
+Users and authorized operators cannot inspect request history through the application. Operational investigations become dependent on direct database access, and retention and privacy behavior remain unverified.
 
-- Tests will run with isolated data and will no longer depend on fixture order or parallel execution.
-- A test failure will provide a more trustworthy signal of a real defect.
-- The CI/CD quality gate will be able to detect regressions consistently.
-- Authentication and authorization tests will use the same `User` and `Approver` roles as the application.
-- Debugging time will decrease because failures will no longer be obscured by cross-fixture contamination.
-- Future work such as auto-expiry, concurrency, security hardening, and E2E validation will have a stable foundation.
-- The fix can remain localized to test infrastructure without changing production business behavior.
+### 4.4 Necessity
 
-The direct benefit for end users is indirect but important: future changes to security-sensitive workflows can be validated more reliably before they reach users.
+**90%.** The feature is important for accountability and compliance, although the core request workflow can operate without a user-facing history view.
 
-### 1.8 Conclusion
+### 4.5 Conclusion
 
-The application can function correctly without this remediation in a normal execution, but the project cannot reliably demonstrate that correctness through its automated presentation tests.
+Audit data that cannot be safely queried is only partially useful. Implement an authorized, paginated history query and add retention and PII tests. Reference: spec 001 tasks `T641` through `T644`.
 
-The problem is therefore a quality and maintainability blocker rather than an immediate user-facing runtime failure. Its 100% remediation necessity is justified because the unstable suite undermines CI/CD, regression protection, and confidence in future changes.
+### 4.6 Proposed Solution
 
-Implementing the fix will not add new business functionality, but it will restore the foundation needed to verify existing functionality and safely develop the remaining project work.
+Add a request-scoped audit query and handler with owner or assigned-approver authorization, server-side pagination capped at 50 records, dedicated ViewModels, and employee and approver views. Add retention and masking tests before exposing the history route.
 
+## 5. Destructive-Action Confirmation Is Reported Missing
 
+### 5.1 Current Issue
 
+The document reports that `_ConfirmationModal.cshtml` is missing for cancellation, voiding, and rejection. This finding must be treated cautiously because the current repository may contain an equivalent component under a different shared-view path.
 
-## 2. Business Functionality Missing: Auto-expiry
+### 5.2 Benefits of Resolution
 
-### 2.1 Current State
+Verified confirmation on irreversible actions reduces accidental cancellations, voids, and rejections and makes the user interface consistent with the Product Owner decision requiring explicit confirmation.
 
-The `VacationRequest` domain entity already contains the `Expire()` transition, and domain-level expiry tests exist. However, the application does not currently invoke that method in production.
+### 5.3 Consequences of Not Resolving
 
-The following implementation pieces are missing:
+If no equivalent confirmation exists, users may trigger irreversible transitions accidentally. If an equivalent component already exists, failing to verify its usage may leave one or more destructive paths unprotected.
 
-- No `AutoExpiryJob` or equivalent background process exists.
-- No `IHostedService` is registered to inspect pending requests periodically.
-- `EXPIRY_DAYS` is documented as a configuration value but is not bound to an operational process.
-- No integration test verifies expiry against the application and database.
-- No E2E test verifies the expired status through the user workflow.
-- No robustness test verifies invalid configuration or idempotent execution.
+### 5.4 Necessity
 
-### 2.2 Identified Root Cause
+**60%.** The requirement is important, but the reported absence may be stale and must be verified before any implementation is planned.
 
-The domain state machine supports `Pending -> Expired`, but the infrastructure and application layers do not contain the scheduled orchestration needed to trigger that transition. The functionality was partially implemented at the domain level but never connected to a running background process.
+### 5.5 Conclusion
 
-### 2.3 Blocking Impact
+Do not duplicate the component blindly. First verify every destructive action and confirm that the existing shared component is rendered and enforced consistently. Reference: spec 001 task `T312`.
 
-This gap allows a request to remain in `Pending` indefinitely, even after the configured unresolved-request timeout should have elapsed.
+### 5.6 Proposed Solution
 
-The consequences include:
+Audit the current repository for confirmation components and every cancel, void, and reject path. If a reusable modal already exists, connect and test it on all destructive actions; if it does not, add one shared component with explicit confirmation, antiforgery protection, and server-side state validation.
 
-- Reserved vacation days may remain unavailable longer than intended.
-- Approvers may see stale requests indefinitely.
-- Employees may be unable to recover days reserved by a request that is no longer being processed.
-- The system cannot enforce the product decision that auto-expiry replaces auto-escalation.
-- The request lifecycle is incomplete even though the domain contains an `Expired` state.
+## 6. CDN Scripts Lack Subresource Integrity
 
-This is not merely a missing background task. It leaves the business process without a mechanism to recover from an unresponsive approver and makes the configured expiry policy ineffective.
+### 6.1 Current Issue
 
-### 2.4 Specification Reference
+`_ValidationScriptsPartial.cshtml` loads jQuery, jquery-validation, and jquery-validation-unobtrusive from jsDelivr without `integrity` attributes. The browser cannot verify that the downloaded files match the approved versions.
 
-The requirement is defined in the vacation-request specification:
+### 6.2 Benefits of Resolution
 
-- `FR-016`: pending requests must expire after the configured number of working days.
-- `D-005` and `D-006`: auto-expiry is the selected design decision and must replace auto-escalation.
-- `T611`: integration test.
-- `T612`: `AutoExpiryJob` implementation.
-- `T613`: service registration and configuration binding.
-- `T614`: E2E validation.
-- `T647`: invalid-configuration and idempotency tests.
+Local hosting or verified SRI reduces supply-chain risk, improves deployment predictability, and aligns the application with Constitution section 7.2 and the spec 004 asset checklist.
 
-Reference: [spec_001 vacation-request tasks](../.specify/specs/001-vacation-request/tasks.md).
+### 6.3 Consequences of Not Resolving
 
-### 2.5 Recommended Implementation
+A compromised CDN response could execute modified JavaScript in users' browsers, affect form data, alter validation, or assist a client-side attack. External CDN availability also remains a runtime dependency.
 
-Implement a hosted background process that:
+### 6.4 Necessity
 
-- Reads and validates `EXPIRY_DAYS`.
-- Finds only eligible `Pending` requests.
-- Applies the configured working-day rule.
-- Transitions each request to `Expired`.
-- Releases the employee's reserved days.
-- Writes the corresponding audit record.
-- Performs the state change, balance update, and audit write atomically.
-- Is idempotent and does not create duplicate transitions.
-- Logs a critical configuration error and leaves requests unchanged when `EXPIRY_DAYS` is missing or invalid.
+**90%.** It is a release requirement before production exposure, although the current development-only environment reduces immediate operational urgency.
 
-### 2.6 Remediation Necessity
+### 6.5 Conclusion
 
-**Recommended necessity: 95%.**
+Prefer local hosting under `wwwroot/lib/`; otherwise use approved SRI, CSP, and `crossorigin` settings. Reference: spec 004 asset requirements.
 
-This functionality is highly necessary because it enforces a resolved product decision and completes the request lifecycle. The percentage is below 100% only because the application can still process ordinary requests manually; however, the system is not behaviorally complete while pending requests can remain unresolved forever.
+### 6.6 Proposed Solution
 
-### 2.7 Consequences of Not Implementing the Remediation
+Prefer local copies of the three validation libraries, remove external script references, and add a static check that rejects unapproved CDN URLs. If CDN hosting remains necessary, pin exact versions, add verified SRI hashes, set `crossorigin`, and align the CSP with the decision.
 
-- Pending requests can remain active indefinitely.
-- Reserved balances can remain blocked.
-- The application may show inaccurate availability to employees.
-- Approver work queues can contain stale requests.
-- The configured `EXPIRY_DAYS` value will have no practical effect.
-- The system will not satisfy the auto-expiry requirement in `spec_001`.
-- Future changes may rely on an `Expired` state that never occurs in production.
-- The absence of integration and E2E coverage will leave the full lifecycle unverified.
+## 7. Security Headers Are Missing
 
-### 2.8 Benefits of Implementing the Remediation
+### 7.1 Current Issue
 
-- Pending requests will follow the complete lifecycle defined by the domain and specification.
-- Reserved days will be released automatically when the timeout is reached.
-- Employees will recover balance that is no longer tied to an active request.
-- Approvers will not retain stale requests indefinitely.
-- Audit history will record the automatic transition.
-- The system will enforce the decision to use expiry instead of escalation.
-- Configuration will become operational, validated, and observable.
-- Integration and E2E tests will protect the behavior against regressions.
+The documented live-response review found no Content Security Policy, content-type protection, framing protection, or Referrer Policy headers.
 
-### 2.9 Conclusion
+### 7.2 Benefits of Resolution
 
-Auto-expiry is a genuine missing business capability, not merely a missing test. The domain already expresses the intended state transition, but the application has no process that performs it. The remediation should be scheduled after the presentation test suite is stabilized, because deterministic integration tests are required to validate the background process, balance release, audit behavior, and idempotency reliably.
+These headers provide baseline browser defenses against script injection, MIME sniffing, clickjacking, and unnecessary referrer disclosure.
 
-## 3. Security Finding: CDN Scripts Without Subresource Integrity
+### 7.3 Consequences of Not Resolving
 
-### 3.1 Current State
+Production responses will lack required browser protections. The future CSP may also conflict with the current CDN scripts if the asset decision is not resolved first.
 
-`Views/Shared/_ValidationScriptsPartial.cshtml` loads the following scripts from `cdn.jsdelivr.net`:
+### 7.4 Necessity
 
-- jQuery 3.6.0.
-- jquery-validation 1.19.5.
-- jquery-validation-unobtrusive 4.0.0.
+**90%.** The headers are required before production deployment and should be coordinated with point 6.
 
-The script tags do not include an `integrity` attribute or a corresponding `crossorigin` policy. The browser therefore has no cryptographic mechanism to verify that the files delivered by the CDN match the versions approved by the project.
+### 7.5 Conclusion
 
-The project is currently a development application and is not described as deployed to production. Even so, this is an unresolved security requirement and must be addressed before production deployment or an environment where untrusted external responses could affect users.
+Add centrally managed headers, test them through integration tests, and define CSP after choosing local assets or approved CDN usage. Reference: Constitution section 7.2.
 
-### 3.2 Identified Root Cause
+### 7.6 Proposed Solution
 
-The validation scripts were added as external CDN references, while other assets such as Bootstrap are already hosted locally. The implementation did not complete the required asset-governance decision:
+Add one centralized response-header policy or middleware for CSP, `X-Content-Type-Options`, framing protection, and `Referrer-Policy`. Start with a restrictive policy compatible with local assets, then add integration tests for every required header in production-like responses.
 
-- Either host the scripts locally under `wwwroot/lib/`.
-- Or use the CDN with approved CSP configuration and Subresource Integrity.
+## 8. Concurrency Protection Is Untested
 
-The current state uses the CDN without SRI, leaving the supply-chain protection incomplete.
+### 8.1 Current Issue
 
-### 3.3 Security Impact
+Concurrency tests are skipped because InMemory cannot model real SQL Server transactions and row-version conflicts. `DoubleVoid_OnlyOneSucceeds` is also not covered.
 
-Every CDN script executes in the browser of a user who loads a page that includes the validation partial. If the CDN, an upstream package, or the delivery path is compromised, modified JavaScript could be executed as part of the application.
+### 8.2 Benefits of Resolution
 
-Potential consequences include:
+SQL Server integration tests would verify Serializable overlap prevention, optimistic concurrency, single-success state transitions, and balance consistency.
 
-- Reading or modifying form data before submission.
-- Capturing authentication or vacation-request information entered into the page.
-- Altering client-side validation behavior.
-- Redirecting users or modifying page content.
-- Acting as a starting point for broader client-side attacks if other browser protections are also missing.
+### 8.3 Consequences of Not Resolving
 
-SRI does not replace server-side validation, antiforgery protection, or a strong Content Security Policy. It adds an independent integrity check that prevents the browser from accepting a changed file under the expected resource URL.
+Race conditions may corrupt request state or balances while all InMemory tests remain green. Production-only failures would be difficult to reproduce.
 
-### 3.4 Specification Reference
+### 8.4 Necessity
 
-This finding is documented in `docs/Keep-in-mind.md` as the first security finding under the `Security findings` section.
+**95%.** These tests protect critical financial and state-machine invariants and should run against the now-available SQL Server stack.
 
-The relevant project requirements are:
+### 8.5 Conclusion
 
-- Constitution section 7.2: CDN use requires approved CSP configuration and Subresource Integrity where supported.
-- `spec_004` checklist: no CDN references should remain in `.cshtml`; assets should be served from `wwwroot/lib/` or `wwwroot/css/`.
-- The current `_ValidationScriptsPartial.cshtml` violates that checklist by referencing three external CDN scripts without SRI.
+Create a SQL Server test profile, activate the skipped tests, and add the double-void scenario. Do not enable retry strategies until transaction compatibility is designed.
 
-Reference: [spec_004 authentication tasks](../.specify/specs/004-initial-setup-and-authentication/tasks.md).
+### 8.6 Proposed Solution
 
-### 3.5 Recommended Remediation
+Run concurrency scenarios against SQL Server with separate contexts and coordinated tasks. Verify Serializable overlap prevention, `RowVersion` conflicts, and single-success voiding; keep InMemory tests for non-relational behavior only.
 
-The preferred remediation is to download and serve the three approved library versions from `wwwroot/lib/`, then remove the CDN references from the Razor partial.
+## 9. Authorization and IDOR Coverage Is Incomplete
 
-The implementation should also:
+### 9.1 Current Issue
 
-- Confirm the exact library versions approved by the project.
-- Verify the local files are included in the application build and deployment output.
-- Ensure no other `.cshtml` file references an unapproved external script.
-- Add a security test or static validation that detects CDN references in views.
-- Define the CSP after the asset-hosting decision is complete.
+Coverage is missing for voiding another employee's request, over-posting, and session or role revalidation at execution time.
 
-If local hosting is rejected, every supported CDN script must use a verified SRI hash and an appropriate `crossorigin` value, with the CDN origin explicitly covered by the approved CSP. Local hosting remains preferable because it removes runtime dependence on a third-party script delivery service.
+### 9.2 Benefits of Resolution
 
-### 3.6 Remediation Necessity
+Dedicated HTTP-level authorization tests would prove ownership checks, fail-closed behavior, and resistance to direct-request attacks.
 
-**Recommended necessity: 90%.**
+### 9.3 Consequences of Not Resolving
 
-This remediation is highly necessary before production deployment because it addresses a supply-chain risk in code executed by every affected browser session. The percentage is below 100% only because the current application is described as a development environment and is not currently deployed as a production service.
+A user could potentially access or mutate another employee's request, or a stale session could perform an operation after authorization state changed.
 
-The requirement should nevertheless be treated as release-blocking for any production or externally accessible deployment. The fix is small and localized, while the risk of leaving externally controlled JavaScript without integrity verification is avoidable.
+### 9.4 Necessity
 
-### 3.7 Consequences of Not Implementing the Remediation
+**95%.** Broken access control is a primary security risk and must be tested independently of UI visibility.
 
-- The application will continue executing third-party JavaScript without verifying its content.
-- A compromised CDN response could affect every user who loads the validation scripts.
-- The project will remain non-compliant with its documented CDN and SRI requirements.
-- A strict future CSP may block the scripts unexpectedly, causing client-side validation failures.
-- Security reviews will continue to report an unresolved supply-chain weakness.
-- Production deployment will require an urgent asset and CSP change instead of a controlled, tested change.
-- The lack of local asset verification will make deployment behavior depend on external CDN availability.
+### 9.5 Conclusion
 
-### 3.8 Benefits of Implementing the Remediation
+Implement focused integration tests for IDOR, over-posting, and session revalidation before accepting the authorization layer as complete. Reference: spec 001 tasks `T405` and `T622`.
 
-- The browser will load approved assets from a controlled local location, or verify CDN assets cryptographically through SRI.
-- The attack surface associated with third-party script delivery will be reduced.
-- The application will align with Constitution section 7.2 and the `spec_004` checklist.
-- Future CSP configuration will be simpler and more predictable when assets are local.
-- Application startup and page rendering will no longer depend on CDN availability when local hosting is selected.
-- Security reviews and deployment readiness checks will have a clear, testable control.
-- The change remains isolated to static assets and presentation configuration without altering business logic.
+### 9.6 Proposed Solution
 
-### 3.9 Conclusion
+Add direct HTTP tests using authenticated users with different ownership and role states. Revalidate identity, active status, role, assignment, route identifiers, and bindable input at operation time; assert denial and unchanged data for every unauthorized attempt.
 
-The CDN issue does not normally prevent the application from starting or completing its server-side workflows, but it leaves browser-executed code without the integrity protection required by the project security baseline. The preferred solution is to host the validation libraries locally, verify that no unauthorized CDN references remain, and then define the CSP around the controlled asset set.
+## 10. E2E Testing Is Not Operational
 
-This point should be resolved before production exposure. It can be addressed independently after the presentation test suite is stabilized, while its security-header relationship should be considered before implementing the broader headers finding.
+### 10.1 Current Issue
 
-## 4. Quality or Verification Debt: E2E Test Suite
+Playwright is referenced, but the submission flow is a skipped placeholder and browser installation and repeatable execution have not been established. Other critical journeys remain unwritten or unverified.
 
-### 4.1 Current State
+### 10.2 Benefits of Resolution
 
-The project references Microsoft Playwright and contains E2E test code, but the E2E suite does not currently provide complete or reliable coverage of the critical browser journeys.
+Operational E2E tests validate browser, Razor, JavaScript, routes, middleware, authentication, and server behavior together.
 
-The current state includes:
+### 10.3 Consequences of Not Resolving
 
-- `SubmitRequestE2ETests.cs` is a skipped placeholder rather than a complete browser test.
-- The browser installation required by Playwright has not been completed and verified in this environment.
-- The critical employee request submission journey is not executed end to end.
-- Several E2E scenarios listed in `spec_001` and `spec_004` remain unwritten or unverified.
-- Existing Role Switcher tests depend on a running application and browser setup, but there is no recorded successful suite execution against a controlled environment.
+Browser-specific defects may reach users even when unit and HTTP integration tests pass. Critical journeys will depend on manual testing.
 
-The suite is therefore partially present but operationally incomplete. This is more precise than saying that Playwright is absent: the dependency exists, while the required execution and coverage are incomplete.
+### 10.4 Necessity
 
-### 4.2 Identified Root Cause
+**85%.** Manual and lower-level tests provide partial coverage, but they do not replace repeatable browser tests required by the Constitution.
 
-The project created the Playwright test project and some test scaffolding, but browser installation, application startup coordination, test data preparation, and complete scenario implementation were not finished as part of the current work.
+### 10.5 Conclusion
 
-The submission test is explicitly marked as skipped because the browser is not installed. In addition, the remaining E2E work was left as future tasks instead of being completed as part of the feature implementation.
+Install and verify Playwright browsers, establish deterministic startup and data setup, implement the submission journey first, and then add the remaining critical flows.
 
-### 4.3 Verification Impact
+### 10.6 Proposed Solution
 
-The missing E2E coverage prevents validation of the application from the user's actual browser perspective.
+Create a repeatable E2E harness with controlled application startup, clean seeded data, configurable base URL, browser installation, traces, and failure artifacts. Implement submission first, then approval, void, history, edit, expiry, and dashboard scenarios before enabling CI execution.
 
-Without operational E2E tests, the project cannot reliably verify:
+## 11. Accessibility Has Not Been Verified
 
-- That a user can log in through the real browser interface.
-- That forms, client-side validation, antiforgery tokens, redirects, and server-side handlers work together.
-- That a user can submit a vacation request and see the resulting state.
-- That approval, rejection, cancellation, editing, and expiry are visible through the intended UI.
-- That navigation, role switching, and authorization behave correctly when accessed through real browser requests.
-- That changes to Razor views, JavaScript, CSS, routes, or middleware have not broken critical journeys.
+### 11.1 Current Issue
 
-This weakens the project's ability to detect defects that unit and HTTP integration tests cannot reveal, particularly defects involving browser behavior, rendered markup, JavaScript, navigation, and client-server coordination.
+Responsive behavior, keyboard navigation, focus indicators, WCAG AA contrast, axe-core scans, reduced-motion support, and touch-target requirements have not been verified.
 
-### 4.4 Specification Reference
+### 11.2 Benefits of Resolution
 
-This issue is documented in `docs/Keep-in-mind.md` as the first item under **Quality and verification debt**.
+Accessibility verification improves usability across devices and abilities and provides evidence against the project's constitutional requirements.
 
-The relevant planned work includes:
+### 11.3 Consequences of Not Resolving
 
-- `T206`: browser-based validation of critical application behavior.
-- `T304`: E2E coverage for the approval workflow.
-- `T403`: E2E coverage for request voiding.
-- `T502`: E2E coverage for request history.
-- `T601b`: E2E coverage for editing a pending request.
-- `T614`: E2E coverage for automatic expiry.
-- `T646`: E2E coverage for the approver dashboard.
+Accessibility defects may exclude users, create legal or compliance exposure, and remain undiscovered until late acceptance or production use.
 
-The Constitution requires Playwright or an approved equivalent for critical browser journeys. The E2E project also references `Microsoft.Playwright`, confirming that the selected testing technology is already part of the intended architecture.
+### 11.4 Necessity
 
-Reference: [spec_001 vacation-request tasks](../.specify/specs/001-vacation-request/tasks.md) and [spec_004 authentication tasks](../.specify/specs/004-initial-setup-and-authentication/tasks.md).
+**80%.** It is not necessarily a runtime blocker for the current development environment, but it is required for a responsible production-quality interface.
 
-### 4.5 Recommended Remediation
+### 11.5 Conclusion
 
-The remediation should establish a repeatable E2E execution environment and complete the critical scenarios.
+Add viewport, keyboard, contrast, axe-core, reduced-motion, and touch-target checks to the browser verification strategy. Reference: Constitution section 11.5 and spec 002.
 
-It should include:
+### 11.6 Proposed Solution
 
-- Install and verify the required Playwright browser binaries.
-- Define how the application is started before E2E execution.
-- Use a clean, deterministic database and seeded accounts for each run.
-- Replace the submission placeholder with a real login, navigation, form submission, and result assertion.
-- Implement the remaining critical scenarios listed in the specifications.
-- Replace fixed or environment-specific URLs with controlled test configuration.
-- Ensure tests wait for actual application state rather than relying on arbitrary delays.
-- Capture screenshots, traces, or logs when a browser test fails.
-- Run the suite against a freshly initialized application and database.
-- Add the E2E execution to CI only after it is deterministic locally.
+Define accessibility checks as automated Playwright gates across the required viewports, complemented by axe-core scans and manual keyboard verification. Record exceptions explicitly and prevent regressions through CI reports.
 
-The first implementation milestone should be the employee submission journey, because it validates the basic browser path and provides the foundation for later request lifecycle scenarios.
+## 12. Performance Targets Are Unmeasured
 
-### 4.6 Remediation Necessity
+### 12.1 Current Issue
 
-**Recommended necessity: 85%.**
+No load test has recorded the required p95, RPS, or concurrency results for login or other critical operations.
 
-This remediation is highly necessary because the Constitution explicitly requires automated browser coverage for critical journeys, and the current suite cannot validate the application as a user experiences it.
+### 12.2 Benefits of Resolution
 
-The percentage is below 100% because the application can still be exercised manually and some unit or integration tests provide partial coverage. Nevertheless, manual validation is not a reliable substitute for repeatable browser tests, especially after changes to views, JavaScript, routing, or authentication flows.
+Representative measurements establish whether the application meets its performance targets and reveal capacity limits before production.
 
-### 4.7 Consequences of Not Implementing the Remediation
+### 12.3 Consequences of Not Resolving
 
-- Browser-specific defects may reach users undetected.
-- Broken forms, redirects, routes, JavaScript, or rendered views may pass lower-level tests.
-- The project will not fully satisfy its E2E testing requirement.
-- Critical journeys will depend on manual verification and individual tester knowledge.
-- Regressions in login, request submission, approval, and navigation may be discovered late.
-- Auto-expiry, history, and approver workflows will remain unverified from the user interface.
-- CI will not validate the complete application journey from browser to database.
+Performance regressions and capacity constraints remain unknown. Release decisions may rely on intuition rather than evidence.
 
-### 4.8 Benefits of Implementing the Remediation
+### 12.4 Necessity
 
-- Critical user journeys will be validated through the real browser interface.
-- Browser, Razor, JavaScript, routing, middleware, and server behavior will be tested together.
-- Regressions will be detected earlier and with more reproducible evidence.
-- The project will reduce dependence on manual acceptance testing.
-- Screenshots and traces will make UI failures easier to diagnose.
-- Authentication and authorization behavior will be validated from the user's perspective.
-- Future changes to request workflows will have an automated end-to-end safety net.
-- The project will move closer to meeting the Constitution's testing requirements.
+**75%.** Performance evidence is important for production readiness, but it should be measured only in a representative environment and is not an immediate development blocker.
 
-### 4.9 Conclusion
+### 12.5 Conclusion
 
-The E2E suite is not entirely absent, but it is not currently an operational verification layer. Playwright is referenced and some scenarios exist, yet the critical submission flow remains a skipped placeholder and browser execution has not been established as a repeatable process.
+Define workloads and measure p95, p99, throughput, and concurrency on native or production-equivalent infrastructure, not the emulated Docker stack. Reference: Constitution section 12.1.
 
-The remediation should begin after the presentation integration tests are stabilized and should start with the request submission journey. Once the browser environment, startup process, test data, and execution evidence are reliable, the remaining critical E2E scenarios can be implemented progressively.
+### 12.6 Proposed Solution
 
-## 5. Decision: Do Not Benchmark on the Docker Stack
+Define representative datasets and workloads for login, request creation, lists, and dashboards. Run measurements on native or production-equivalent infrastructure, record environment and workload metadata, and publish p95, p99, RPS, concurrency, and error-rate results per release.
 
-### 5.1 Current Decision
+## 13. Code Coverage Has Not Been Measured
 
-Performance benchmarks required by the project must not be performed against the current Docker development stack when SQL Server is running under Apple Silicon emulation.
+### 13.1 Current Issue
 
-This is an established technical decision, not an unresolved defect. The Docker stack remains valid for development, functional testing, and local integration work; it is not a valid performance-measurement environment for the project's production targets.
+The project has no recorded coverage result against the required thresholds: 80% for Domain and Application and 60% measured for Infrastructure and Presentation.
 
-### 5.2 Technical Rationale
+### 13.2 Benefits of Resolution
 
-The SQL Server image used by the stack publishes an `amd64` image. On Apple Silicon, it runs through Rosetta or equivalent architecture emulation.
+Coverage reporting identifies untested critical paths and gives CI an objective quality signal.
 
-That emulation introduces measurable overhead in database operations. A benchmark collected in this environment would combine application performance with emulation cost and would not represent the performance of a native or production-equivalent deployment.
+### 13.3 Consequences of Not Resolving
 
-The result could be misleading in both directions:
+Important regressions may pass without detection, and the project cannot demonstrate compliance with its testing targets.
 
-- The system could appear slower than it would be in a valid environment.
-- A non-representative test setup could lead to incorrect capacity or optimization decisions.
+### 13.4 Necessity
 
-### 5.3 Project Impact
+**80%.** Coverage is not a substitute for test quality, but the absence of measurement leaves a significant verification gap.
 
-The main impact is methodological. If the team measures p95 latency, throughput, or concurrency using the Docker development stack, those measurements cannot be used as reliable evidence for the Constitution's performance targets.
+### 13.5 Conclusion
 
-This affects decisions about:
+Add repeatable coverage collection and publish threshold results by project. Reference: spec 001 task `T706` and Constitution section 9.2.
 
-- Login response times.
-- Vacation-request operations.
-- List and dashboard queries.
-- Database capacity.
-- RPS and concurrency targets.
-- Production release readiness.
+### 13.6 Proposed Solution
 
-The decision does not prevent functional development. It only limits which environment may be used to make performance claims.
+Add a repeatable .NET coverage command to CI, collect results per project, enforce 80% thresholds for Domain and Application and 60% measured coverage for Infrastructure and Presentation, and report exclusions explicitly.
 
-### 5.4 Reference and Constraint
+## 14. Rate Limiting Is Unverified
 
-The constraint is documented in `docs/Keep-in-mind.md`, the Docker quickstart, the Docker research notes, and Constitution section 12.1.
+### 14.1 Current Issue
 
-The project performance targets include:
+Rate limiting is disabled in the `Testing` environment, so the expected `429` behavior and its interaction with failed-login counters are not tested.
 
-- Focused operations with p95 below 300 ms.
-- Standard MVC pages with p95 below 500 ms.
-- Documented RPS and concurrency targets for production releases.
+### 14.2 Benefits of Resolution
 
-Those targets require a representative measurement environment. The current emulated Docker stack must therefore be excluded from official benchmarking.
+A dedicated fixture would verify protection against credential stuffing and confirm that rejected requests do not incorrectly increment account failure counters.
 
-### 5.5 Recommended Application
+### 14.3 Consequences of Not Resolving
 
-The team should:
+A configured security control may be broken or misconfigured in production without automated detection.
 
-- Use Docker for build, functional testing, integration testing, and development.
-- Define a native or production-equivalent environment for performance measurements.
-- Document the CPU architecture, database engine, storage, memory, and network characteristics of that environment.
-- Measure p95, p99, throughput, concurrency, and error rates there.
-- Record the environment and workload with every benchmark result.
-- Avoid presenting Docker development measurements as production performance evidence.
+### 14.4 Necessity
 
-If performance testing is required before production infrastructure exists, use a native SQL Server environment or another controlled environment with documented differences and limitations.
+**85%.** Rate limiting protects a sensitive endpoint and must have a realistic automated verification path.
 
-### 5.6 Necessity of Respecting the Decision
+### 14.5 Conclusion
 
-**Recommended necessity: 100%.**
+Test rate limiting with controlled configuration while preserving database isolation. Reference: spec 004 tasks `T031` and its rate-limit acceptance checks.
 
-Respecting this decision is mandatory whenever performance results are used for capacity planning, optimization, or release approval. The immediate remediation effort is not to change the application, but to prevent invalid measurements and establish a valid benchmark environment when performance testing begins.
+### 14.6 Proposed Solution
 
-### 5.7 Consequences of Ignoring the Decision
+Create a dedicated integration fixture that enables rate limiting and uses isolated state. Send controlled repeated login requests, assert `429` behavior, and verify rejected requests do not increment `AccessFailedCount`.
 
-- Performance results may be attributed incorrectly to the application.
-- The team may optimize code to compensate for emulation overhead.
-- Production capacity may be overestimated or underestimated.
-- Release decisions may be based on non-representative p95 and RPS values.
-- Database bottlenecks may be confused with architecture-emulation overhead.
-- Comparisons between releases may become invalid if the development environment changes.
+## 15. Infrastructure Test Project Is Missing
 
-### 5.8 Benefits of Respecting the Decision
+### 15.1 Current Issue
 
-- Performance results will be more representative and defensible.
-- Optimization work will target actual application bottlenecks.
-- Capacity planning will use meaningful measurements.
-- Release performance claims will include their environment and limitations.
-- Docker remains useful for development without being misused as a benchmark platform.
-- The project avoids creating false confidence from numbers that cannot be reproduced in production.
+The architecture document lists `NovaLeave.Infrastructure.Tests`, but the repository contains no such project.
 
-### 5.9 Conclusion
+### 15.2 Benefits of Resolution
 
-The Docker stack is appropriate for local development and functional validation, but it is not appropriate for official performance benchmarking while SQL Server runs under architecture emulation. This decision should be preserved as an engineering constraint and revisited only when a native or production-equivalent measurement environment is available.
+A dedicated project would provide an explicit home for EF Core, migrations, SQL Server, persistence, health-check, and infrastructure integration tests.
 
+### 15.3 Consequences of Not Resolving
+
+Infrastructure behavior will remain covered indirectly, inconsistently, or not at all. The architecture documentation will also remain inconsistent with the repository.
+
+### 15.4 Necessity
+
+**65%.** The need depends on whether the architecture requires a separate project or whether the documentation should be corrected instead.
+
+### 15.5 Conclusion
+
+Choose one consistent solution: create the project with meaningful infrastructure tests, or formally update the architecture documentation to remove the requirement.
+
+### 15.6 Proposed Solution
+
+Compare the architecture contract with the intended test strategy. If SQL Server, migrations, health checks, and persistence require independent coverage, create `NovaLeave.Infrastructure.Tests`; otherwise record an approved architecture correction and place those tests in the existing projects.
+
+## 16. Required Documentation Directories Are Missing
+
+### 16.1 Current Issue
+
+`docs/runbooks/` and a diagrams directory are absent despite constitutional requirements for operational runbooks and diagrams as code.
+
+### 16.2 Benefits of Resolution
+
+Runbooks improve incident response and diagrams preserve architecture and workflow knowledge in a reviewable format.
+
+### 16.3 Consequences of Not Resolving
+
+Operational knowledge remains undocumented, onboarding becomes harder, and the repository does not fully satisfy its documentation requirements.
+
+### 16.4 Necessity
+
+**65%.** This is governance and operational debt rather than an immediate application failure.
+
+### 16.5 Conclusion
+
+Create the required directories and add the minimum useful runbooks and Mermaid diagrams before production operations begin. Reference: Constitution sections 12.3 and 14.
+
+### 16.6 Proposed Solution
+
+Create `docs/runbooks/` with startup, migration, rollback, backup, and incident procedures, and create a diagrams directory containing current architecture and workflow Mermaid diagrams. Link both from the relevant documentation and operational alerts.
+
+## 17. Documentation Language Is Inconsistent
+
+### 17.1 Current Issue
+
+The Constitution specifies Spanish for documentation, while most specifications and technical artifacts are written in English.
+
+### 17.2 Benefits of Resolution
+
+A single documented language policy removes contributor ambiguity and makes future documentation easier to review and maintain.
+
+### 17.3 Consequences of Not Resolving
+
+Contributors may follow conflicting conventions, producing inconsistent project knowledge and duplicated translation effort.
+
+### 17.4 Necessity
+
+**45%.** This is a governance issue requiring a decision, not an urgent technical defect.
+
+### 17.5 Conclusion
+
+The Product Owner and architecture authority should select and document the official convention. Do not translate the repository piecemeal before that decision.
+
+### 17.6 Proposed Solution
+
+Record a formal documentation-language decision, update the contribution guidance, and apply the selected convention consistently to new and materially revised documents. Treat existing artifacts with a planned migration rather than an uncontrolled rewrite.
+
+## 18. Docker Must Not Be Used for Official Benchmarks
+
+### 18.1 Current Issue
+
+SQL Server runs under architecture emulation on Apple Silicon, so Docker development performance does not represent native or production performance.
+
+### 18.2 Benefits of Respecting the Decision
+
+Excluding this stack from official benchmarks prevents misleading latency, throughput, capacity, and release-readiness conclusions.
+
+### 18.3 Consequences of Ignoring the Decision
+
+The team may optimize for emulation overhead, misjudge production capacity, or approve releases using non-representative measurements.
+
+### 18.4 Necessity
+
+**100%** whenever measurements are used for capacity planning, optimization, or release approval.
+
+### 18.5 Conclusion
+
+Keep Docker for development and functional validation, but benchmark only on native or production-equivalent infrastructure. Reference: Constitution section 12.1 and the Docker research notes.
+
+### 18.6 Proposed Solution
+
+Add an explicit benchmark-environment policy to the performance procedure. Require architecture, database, storage, and workload metadata before accepting results, and reject measurements from emulated Docker as release evidence.
+
+## 19. SQL Retry Strategy Must Remain Disabled
+
+### 19.1 Current Issue
+
+`EnableRetryOnFailure` is incompatible with the current user-initiated `Serializable` transaction used for overlap prevention. Enabling it without redesign could break SQL Server request creation.
+
+### 19.2 Benefits of Respecting the Decision
+
+Keeping it disabled prevents a seemingly beneficial configuration change from breaking a critical production path.
+
+### 19.3 Consequences of Ignoring the Decision
+
+The InMemory tests may remain green while SQL Server throws an execution-strategy transaction exception in production.
+
+### 19.4 Necessity
+
+**90%.** The decision is necessary until the transaction is migrated to an execution-strategy-compatible design and verified against SQL Server.
+
+### 19.5 Conclusion
+
+Do not enable retries casually. If resiliency is later required, redesign the transaction, add SQL Server concurrency tests, and document the change. Reference: Docker research R-010 and GAP-005-4.
+
+### 19.6 Proposed Solution
+
+Keep `EnableRetryOnFailure` disabled. If connection resiliency becomes necessary, wrap the Serializable operation in a compatible execution strategy, test transient failures and concurrency against SQL Server, and review the design before enabling it.
+
+## 20. Docker Appsettings File Must Not Be Added
+
+### 20.1 Current Issue
+
+An `appsettings.Docker.json` file would require a `Docker` environment name that changes `IsDevelopment()` behavior, potentially disabling development seeding and detailed errors while enabling production-oriented middleware.
+
+### 20.2 Benefits of Respecting the Decision
+
+Keeping the environment as `Development` preserves predictable local behavior while environment variables override the connection string and keep secrets out of tracked files.
+
+### 20.3 Consequences of Ignoring the Decision
+
+Developers may unknowingly run with production-like behavior, lose seeded accounts, receive less useful diagnostics, or accidentally expose configuration assumptions.
+
+### 20.4 Necessity
+
+**85%.** This decision protects the correctness and usability of the approved development workflow.
+
+### 20.5 Conclusion
+
+Keep Docker on `Development` and use environment-variable configuration. Revisit only through an explicit architecture decision. Reference: Docker decision documentation.
+
+### 20.6 Proposed Solution
+
+Retain `ASPNETCORE_ENVIRONMENT=Development` for the local Compose workflow and supply secrets and connection strings through environment variables. Document this as the supported approach and reject Docker-specific appsettings unless a new ADR defines equivalent behavior.
+
+## 21. Startup Migrations Are Development-Only
+
+### 21.1 Current Issue
+
+`DatabaseInitializer` refuses to migrate in Production, but a reviewed production migration and rollback procedure has not been defined. Multiple replicas could also attempt migrations concurrently if this boundary is ignored.
+
+### 21.2 Benefits of Resolution
+
+A formal deployment migration process enables controlled, reversible schema changes and reduces operational risk.
+
+### 21.3 Consequences of Not Resolving
+
+Production deployments may rely on unsafe manual changes, lack rollback guidance, or encounter migration races in multi-instance environments.
+
+### 21.4 Necessity
+
+**90%.** The application can remain development-only without this, but the gap must be closed before deployment.
+
+### 21.5 Conclusion
+
+Preserve the Production guard and define a reviewed migration and rollback runbook before any production release. Reference: GAP-005-3 and Constitution section 16.2.
+
+### 21.6 Proposed Solution
+
+Keep automatic startup migration limited to Development. For production, define a single-owner deployment migration step with prechecks, backup, rollback boundaries, multi-replica coordination, and post-migration verification.
+
+## 22. Host Builds Require .NET 10 or Docker
+
+### 22.1 Current Issue
+
+The solution targets `net10.0`, so machines with only older SDKs cannot build it directly. Docker is currently the reliable fallback.
+
+### 22.2 Benefits of Resolution
+
+Documented SDK requirements and a standard container build reduce machine-specific failures and make onboarding reproducible.
+
+### 22.3 Consequences of Not Resolving
+
+Developers may waste time diagnosing host-toolchain errors, and local development remains dependent on Docker or manual SDK installation.
+
+### 22.4 Necessity
+
+**70%.** This is an environment and onboarding issue, not an application runtime defect.
+
+### 22.5 Conclusion
+
+Document and enforce the .NET 10 prerequisite while retaining the Docker build path. Do not alter the target framework solely to accommodate an outdated host SDK.
+
+### 22.6 Proposed Solution
+
+Pin and document the required .NET SDK, add a clear container build command, and add CI validation for the solution. Use SDK checks or `global.json` where appropriate, without lowering the target framework.
+
+## 23. Housekeeping and Naming Deviations
+
+### 23.1 Current Issue
+
+`TimeProvider.System` is registered twice, and database tables use plural names despite a documented preference for singular names. The plural convention is already applied consistently.
+
+### 23.2 Benefits of Resolution
+
+Removing the duplicate registration reduces configuration noise. Documenting the plural naming convention eliminates ambiguity without requiring a risky migration.
+
+### 23.3 Consequences of Not Resolving
+
+The duplicate registration may hide future configuration mistakes, and the undocumented naming deviation may cause unnecessary discussions or inconsistent future schema decisions.
+
+### 23.4 Necessity
+
+**35%.** These are low-risk housekeeping issues and are not blockers for application operation.
+
+### 23.5 Conclusion
+
+Remove the redundant registration during routine maintenance and document plural table names as an accepted, consistent deviation. Do not prioritize a schema migration solely for this convention.
+
+### 23.6 Proposed Solution
+
+Remove the duplicate `TimeProvider` registration in a routine cleanup and record the plural table convention in the architecture documentation. Avoid a database rename migration unless a future business or operational requirement justifies its risk.
+
+## Overall Conclusion
+
+The 23 findings do not have equal status. The presentation test instability, auto-expiry gap, audit protection, authorization coverage, concurrency validation, and production security controls carry the highest risk. Other items are verification debt, governance decisions, operational constraints, or housekeeping.
+
+The project can run without resolving every finding, but running successfully is not equivalent to being verifiable, secure, operationally ready, or protected against regression. The percentages in this document express the necessity of addressing each point, not the probability that the application will fail immediately.
+
+No implementation was performed. This document is an analysis and prioritization artifact only.
