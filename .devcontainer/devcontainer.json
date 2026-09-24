@@ -1,0 +1,59 @@
+// NovaLeave -- dev container (spec_011, ADR-004).
+//
+//   devpod up . --ide vscode                          # DevPod (community fork, see README)
+//   VS Code: "Dev Containers: Reopen in Container"    # same file, no DevPod needed
+//   npx @devcontainers/cli up --workspace-folder .    # headless
+//
+// Only keys from the open Dev Container specification are used -- nothing DevPod-specific --
+// so this keeps working if DevPod does not (ADR-004: the project is unmaintained upstream).
+{
+  "name": "NovaLeave",
+
+  // The whole stack from compose.yaml, plus a `workspace` container defined in the second file.
+  // The editor attaches to `workspace`; `web` keeps serving http://localhost:8080 as usual.
+  "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
+  "service": "workspace",
+  "workspaceFolder": "/src",
+
+  // Start ONLY the workspace. The stack is started on the host first (initializeCommand) and
+  // the workspace joins its network. Letting the dev-container tool start the stack instead
+  // does not survive DevPod: it names the Compose project itself, so it would start a second
+  // stack whose published ports collide with the first (spec_011 tasks, T203).
+  "runServices": ["workspace"],
+  // `env -u DOCKER_CONFIG`: DevPod points DOCKER_CONFIG at a temporary directory of its own,
+  // which hides the `compose` plugin and the Docker Desktop context -- `docker compose` then
+  // fails with "unknown shorthand flag: 'd'". Harmless for every other tool.
+  "initializeCommand": "env -u DOCKER_CONFIG docker compose up -d",
+
+  // Opening or closing the editor must not stop a stack you may be using from the terminal.
+  "shutdownAction": "none",
+
+  // Root, like `web`: the source tree is a bind mount written by both containers, and host
+  // UIDs differ between macOS and Linux (spec_005 research R-007).
+  "remoteUser": "root",
+
+  // The app when run from the workspace (ASPNETCORE_HTTP_PORTS=5080). Grafana, Prometheus and
+  // the `web` app are already published by compose.yaml.
+  "forwardPorts": [5080],
+  "portsAttributes": {
+    "5080": { "label": "NovaLeave (workspace)", "onAutoForward": "notify" }
+  },
+
+  // The image restores at build time, but against the csproj files only; this restores the
+  // mounted tree so IntelliSense has every package the moment the editor opens.
+  "postCreateCommand": "dotnet restore NovaLeave.slnx",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        // The C# extension finds the SDK inside the container -- .NET 10, not the host's 7.0.
+        "dotnet.defaultSolution": "NovaLeave.slnx"
+      }
+    }
+  }
+}

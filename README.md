@@ -46,7 +46,42 @@ docker run --rm -v "$PWD":/src -w /src mcr.microsoft.com/dotnet/sdk:10.0 \
   dotnet test tests/NovaLeave.Domain.Tests/NovaLeave.Domain.Tests.csproj
 ```
 
+For editing with a working .NET 10 toolchain — IntelliSense, debugging, Test Explorer — use the [dev container](#dev-container-devpod) below.
+
 > `NovaLeave.Presentation.Tests` currently fails 24–26 of its 49 tests for reasons unrelated to Docker — the fixtures share one in-memory database and reference roles the application does not define. Diagnosed in [spec 006](.specify/specs/006-integration-test-isolation/spec_006-integration-test-isolation.md). `Domain.Tests` (63) and `Application.Tests` (49) pass.
+
+---
+
+## Dev container (DevPod)
+
+Your editor can run **inside** a container with the .NET 10 SDK, next to the stack: IntelliSense, debugging and tests work even though your machine's SDK is older. Defined in `.devcontainer/` using the open Dev Container standard; launched with [DevPod](https://devpod.sh).
+
+```bash
+# once — DevPod community fork (upstream is unmaintained, see ADR-004)
+gh release download v0.26.1 --repo skevetter/devpod --pattern devpod-darwin-arm64
+shasum -a 256 devpod-darwin-arm64        # 5a6b65646f62819bdd6822a2abfee792d9c7843f4cb6bc3633377c67c123a72d
+install -m 755 devpod-darwin-arm64 /opt/homebrew/bin/devpod && rm devpod-darwin-arm64
+devpod provider add docker
+echo 'export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock' >> ~/.zshrc   # macOS, see below
+
+# daily
+devpod up . --ide vscode      # starts the stack if needed, then the workspace, then VS Code
+devpod stop .                 # stops the workspace; the stack keeps running
+```
+
+Inside the workspace terminal:
+
+```bash
+dotnet build NovaLeave.slnx
+dotnet test tests/NovaLeave.Application.Tests
+dotnet run --project src/NovaLeave.Presentation.Web --no-launch-profile   # http://localhost:5080
+```
+
+`web` keeps serving http://localhost:8080 with `dotnet watch` as always; the workspace is a separate container on the same network, reaching `db` by name.
+
+> **macOS / Docker Desktop:** DevPod looks for `/var/run/docker.sock`, which Docker Desktop does not create by default. Export `DOCKER_HOST` as above, or enable *Settings → Advanced → Allow the default Docker socket to be used*. Without either, `devpod up` fails with *"failed to connect to the docker API"*.
+
+No DevPod? The same files work with VS Code (*Dev Containers: Reopen in Container*) or `npx @devcontainers/cli up --workspace-folder .`. Details and trade-offs in [ADR-004](docs/adr/ADR-004-devpod-dev-containers.md).
 
 ---
 
@@ -138,6 +173,7 @@ src/
 
 tests/                         Domain, Application, Presentation (integration), E2E
 docker/                        Prometheus, Grafana, Loki and Alloy config; agents/ for AI agent teams
+.devcontainer/                 Dev container (DevPod / VS Code): .NET 10 workspace joined to the stack
 .specify/                      Spec-kit specifications, plans and tasks
 docs/adr/                      Architecture decision records
 ```

@@ -1,0 +1,59 @@
+# NovaLeave -- dev container workspace (spec_011).
+#
+# Loaded ONLY by dev-container tools (DevPod, VS Code Dev Containers, the devcontainer CLI),
+# together with ../compose.yaml -- see devcontainer.json. A plain `docker compose up` never
+# reads this file, so the stack it starts is unchanged (FR-006).
+#
+# `workspace` is where you edit, build, debug and test with the .NET 10 SDK. `web` keeps running
+# the app under `dotnet watch` on http://localhost:8080 exactly as before; the two containers
+# share the source tree but never each other's build output.
+
+services:
+  workspace:
+    # Everything `web` has: the `development` build target (.NET 10 SDK), the source bind mount,
+    # the NuGet cache, the bin/obj masking volumes, and the connection string to `db`. Inherited
+    # rather than copied, so a change to `web` cannot silently leave the workspace behind.
+    #
+    # `compose.yaml`, not `../compose.yaml`: Compose resolves paths in every file of a
+    # multi-file project against the project directory -- the first file's, the repo root.
+    extends:
+      file: compose.yaml
+      service: web
+    # The editor attaches to this container; nothing should run in it until you start it.
+    command: ["sleep", "infinity"]
+    # `web` publishes 8080. The workspace publishes nothing: devcontainer.json forwards 5080 to
+    # the host on demand, and a second published 8080 would fail to start.
+    ports: !reset []
+    environment:
+      # One listener, and not 9464: the workspace app is not scraped by Prometheus, and a second
+      # /metrics endpoint would only be confusing. Run the app here with
+      #   dotnet run --project src/NovaLeave.Presentation.Web --no-launch-profile
+      ASPNETCORE_HTTP_PORTS: "5080"
+    volumes:
+      # `web` masks bin/obj for src/ only, because it never builds tests. The workspace does, and
+      # without these the host's bin/obj (different SDK, different OS) would shadow the
+      # container's and fail restore in ways that look like source errors (spec_005 R-005).
+      - /src/tests/NovaLeave.Domain.Tests/bin
+      - /src/tests/NovaLeave.Domain.Tests/obj
+      - /src/tests/NovaLeave.Application.Tests/bin
+      - /src/tests/NovaLeave.Application.Tests/obj
+      - /src/tests/NovaLeave.Presentation.Tests/bin
+      - /src/tests/NovaLeave.Presentation.Tests/obj
+      - /src/tests/NovaLeave.E2E.Tests/bin
+      - /src/tests/NovaLeave.E2E.Tests/obj
+    # Stopped with the editor session's lifecycle, not resurrected by Docker on its own.
+    restart: "no"
+    # `web` waits for `db`; the workspace must not. It runs as its OWN Compose project (DevPod
+    # names projects itself and ignores `name: novaleave`), so depending on `db` here would
+    # start a second database -- and a second copy of every published port. The stack is
+    # started beforehand by devcontainer.json's initializeCommand instead.
+    depends_on: !reset {}
+    # Joins the running stack's network, where `db` resolves by service name exactly as it does
+    # for `web`. External: this project must never create or delete it.
+    networks: !override
+      - stack
+
+networks:
+  stack:
+    name: novaleave_default
+    external: true

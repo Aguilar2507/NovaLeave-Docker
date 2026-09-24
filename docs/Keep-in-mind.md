@@ -1,7 +1,7 @@
 # Keep in mind
 
-**Last updated**: 2026-09-23
-**Context**: compiled at the close of `spec_005` (Docker), updated at the close of `spec_007` (metrics), `spec_008` (seed data), `spec_009` (logs) and `spec_010` (AI agents)
+**Last updated**: 2026-09-24
+**Context**: compiled at the close of `spec_005` (Docker), updated at the close of `spec_007` (metrics), `spec_008` (seed data), `spec_009` (logs), `spec_010` (AI agents) and `spec_011` (dev containers)
 
 Open work, known limitations, and decisions worth not re-litigating. Read this before picking up a task.
 
@@ -129,6 +129,19 @@ Tracing reuses the same OpenTelemetry setup — add tracing instrumentation and 
 **Per-machine setup — not in the repository.** Each developer runs once: `sbx login`, `sbx policy init balanced`, and `sbx secret set google --command "grep '^GOOGLE_API_KEY=' $PWD/.env | cut -d= -f2-"`. Without the stored secret, Gemini answers **HTTP 400** from inside the sandbox — it looks like a config error but is a missing credential.
 
 **Script-tool gotcha**: docker-agent reads every `$NAME` or `${...}` in a script tool's `cmd` as a tool argument and **silently drops the whole toolset** if one is undeclared — `$PWD` and `${x:-default}` included. Run `docker agent debug toolsets <file>` after every edit to a team file.
+
+## 2f. Dev container — DevPod upstream is unmaintained
+
+`spec_011` added `.devcontainer/`: a `workspace` container with the .NET 10 SDK that joins the running stack, launched with DevPod (`devpod up . --ide vscode`) or any dev-container tool. See [ADR-004](adr/ADR-004-devpod-dev-containers.md).
+
+| ID | Gap from spec_011 |
+|----|-------------------|
+| **GAP-011-1** ⚪ | **Keep `devcontainer.json` to standard keys only.** DevPod upstream has been unmaintained since 2025; the pinned community fork (v0.26.1) has one maintainer moving to a successor. The standard file is what survives if DevPod does not |
+| GAP-011-2 | macOS Docker Desktop: DevPod needs `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` (or Docker Desktop's default-socket setting) — it swaps `DOCKER_CONFIG`, hiding the Desktop context |
+| **GAP-011-3** ⚪ | **Do not let the dev-container tool start the stack.** DevPod names Compose projects itself: it either reuses the running project without the workspace, or starts a second stack whose ports collide. The workspace joins `novaleave_default`; `initializeCommand` starts the stack |
+| GAP-011-4 | SQL Server still emulated on Apple Silicon; DevPod SSH/cloud providers could fix it — not configured |
+| GAP-011-5 | Playwright browsers not in the image — E2E cannot run in the workspace |
+| T404 | VS Code attach (IntelliSense on .NET 10, breakpoint) awaiting user confirmation |
 
 ## 2c. Approving a request charges the employee TWICE
 
