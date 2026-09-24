@@ -1,11 +1,11 @@
 # Task Analysis
 
 **Project:** NovaLeave  
-**Analysis date:** 2026-09-23  
+**Analysis date:** 2026-09-24  
 **Scope:** Point-by-point revalidation of all 23 findings listed in `docs/Keep-in-mind.md` against the current source tree, tests, configuration, and available test execution.  
 **Status:** Analysis only; no implementation performed.
 
-This revision treats `Keep-in-mind.md` as the baseline rather than as current evidence. It distinguishes resolved work, partial progress, decisions that remain intentionally open, and findings that still reproduce. The presentation test suite was executed with the .NET 10 SDK; it still fails and reproduces the shared InMemory database and obsolete-role problems. A separate business defect was also found while reviewing the request lifecycle: approval deducts days after creation has already reserved them. It is recorded under point 2 because it affects the same request-lifecycle and balance invariant. The optional Docker agent teams introduced by `spec_010` are also assessed under point 2 as development tooling and operational risk, not as application business functionality.
+This revision treats `Keep-in-mind.md` as the baseline rather than as current evidence. It distinguishes resolved work, partial progress, decisions that remain intentionally open, and findings that still reproduce. The presentation test suite was executed with the .NET 10 SDK; it still fails and reproduces the shared InMemory database and obsolete-role problems. A separate business defect was also found while reviewing the request lifecycle: approval deducts days after creation has already reserved them. It is recorded under point 2 because it affects the same request-lifecycle and balance invariant. The optional Docker agent teams introduced by `spec_010` and the Dev Container workflow introduced by `spec_011` are also assessed under point 2 as development tooling and operational risk, not as application business functionality.
 
 > This document analyzes the documented issues individually. It does not modify the application, implement fixes, or assume that every unchecked task is still missing. Some findings may be stale and require confirmation against the current source tree.
 
@@ -180,6 +180,7 @@ This revision treats `Keep-in-mind.md` as the baseline rather than as current ev
     - [Scope and Checkbox Caveat](#scope-and-checkbox-caveat)
     - [Spec 005 Change Summary](#spec-005-change-summary)
     - [Traceability Matrix](#traceability-matrix)
+      - [Spec 011 Dev Container Findings](#spec-011-dev-container-findings)
   - [Overall Conclusion](#overall-conclusion)
 
 ## 1. Presentation Test Suite Is Non-Deterministic
@@ -220,6 +221,8 @@ The lifecycle review also found a separate balance defect in the same path: `Cre
 
 `spec_010` also delivered optional Docker agent teams for operations and development. They are not part of the application runtime, but they add a separate toolchain risk: `GAP-010-2` exposes the Docker socket through the ops agent, which is bounded only by the lack of a shell and three fixed read-only commands; `GAP-010-3` means Gemini-backed agents can transmit repository or seeded data to Google; `GAP-010-9` causes free-tier `HTTP 429` responses after a few multi-agent questions; `GAP-010-8` prevents reliable use of the local model in the sandboxed dev team; and `GAP-010-7` requires `docker/agents/dev-team.sh` because direct YAML execution is not sandboxed with the current docker-agent version. The ops team has a local Model Runner option, but the sandboxed dev path silently falls back to Gemini when given the local flavor. Agent behavior has no automated evaluation (`GAP-010-5`), prompts embed metric names and test baselines that can drift (`GAP-010-6`), and T309's permitted sandbox write and `dotnet_test` checks remain unverified. Developers also need `sbx login`, the balanced policy, and a stored Google secret; script-tool variables such as `$PWD` or `${x:-default}` can silently remove a toolset unless `docker agent debug toolsets` is run after edits. These agents must be used only with seeded/non-sensitive data and their setup prerequisites documented.
 
+`spec_011` added an optional `.devcontainer/` workspace, but its failures are environmental and toolchain-specific rather than application defects. `GAP-011-1` exists because upstream DevPod is unmaintained and the community fork has a single maintainer; the standard-only `devcontainer.json` is therefore intentional. `GAP-011-2` occurs because DevPod replaces `DOCKER_CONFIG`, hiding Docker Desktop's context and Compose plugin; on macOS the workspace needs `DOCKER_HOST` or the default-socket setting. `GAP-011-3` occurs because DevPod chooses its own Compose project name: allowing the tool to start the stack either reuses it without the workspace or creates a second stack with colliding ports, so `initializeCommand` starts the stack and the workspace joins external network `novaleave_default`. `GAP-011-4` keeps SQL Server under Apple Silicon emulation, `GAP-011-5` leaves Playwright browsers out of the image, and T404 still awaits VS Code attach confirmation for IntelliSense and breakpoints. The workspace deliberately has no Docker socket and does not start or stop the shared stack automatically. Verification on 2026-09-24 showed the workspace/build/health path working, but these portability and browser/IDE gaps remain.
+
 ### 2.2 Benefits of Resolution
 
 Implementing auto-expiry would complete the request lifecycle, release reserved days, remove stale approval items, create the required audit event, and enforce the Product Owner decision that expiry replaces auto-escalation.
@@ -234,7 +237,7 @@ Pending requests may remain unresolved indefinitely, employees may lose access t
 
 ### 2.5 Conclusion
 
-The domain supports expiry, but the application does not operationalize it. The current observability work makes the missing behavior visible through `novaleave_vacation_request_oldest_pending_age_seconds`, but does not execute it. The PO decision recorded in `spec-pending-clarifications.md` replaced auto-escalation with auto-expiry, so this is not an optional enhancement. The same observability and logging stack is useful for local diagnosis but still has production security and retention gaps. The optional agent teams add development-only security, privacy, reproducibility, and verification concerns, but do not resolve any application finding. The next analysis or implementation plan must cover configuration validation, an idempotent hosted process, atomic balance release and auditing, the approval reservation invariant, the GAP-007/GAP-009 operational controls, the GAP-010 agent controls, and integration/E2E evidence. Reference: `FR-016`, `T611`, `T612`, `T613`, `T614`, and `T647` in spec 001.
+The domain supports expiry, but the application does not operationalize it. The current observability work makes the missing behavior visible through `novaleave_vacation_request_oldest_pending_age_seconds`, but does not execute it. The PO decision recorded in `spec-pending-clarifications.md` replaced auto-escalation with auto-expiry, so this is not an optional enhancement. The same observability and logging stack is useful for local diagnosis but still has production security and retention gaps. The optional agent and Dev Container teams add development-only security, privacy, portability, reproducibility, and verification concerns, but do not resolve any application finding. The next analysis or implementation plan must cover configuration validation, an idempotent hosted process, atomic balance release and auditing, the approval reservation invariant, the GAP-007/GAP-009 operational controls, the GAP-010/GAP-011 tooling controls, and integration/E2E evidence. Reference: `FR-016`, `T611`, `T612`, `T613`, `T614`, and `T647` in spec 001.
 
 ### 2.6 Proposed Solution
 
@@ -738,7 +741,7 @@ Keep automatic startup migration limited to Development. For production, define 
 
 ### 22.1 Current Issue
 
-The solution targets `net10.0`. The current environment has SDK `10.0.400`, so a host build is available here; older SDKs still cannot build the solution directly. Docker remains the reproducible fallback, but no `global.json` or CI gate pins/enforces the required SDK.
+The solution targets `net10.0`. The current environment has SDK `10.0.400`, so a host build is available here; older SDKs still cannot build the solution directly. Docker remains the reproducible fallback, and `spec_011` adds a .NET 10 workspace container that enables editor tooling inside the container. The workspace improves IntelliSense and debugging availability but does not remove the need for a controlled SDK requirement or CI gate; no `global.json` or CI gate pins/enforces the required SDK.
 
 ### 22.2 Benefits of Resolution
 
@@ -746,7 +749,7 @@ Documented SDK requirements and a standard container build reduce machine-specif
 
 ### 22.3 Consequences of Not Resolving
 
-Developers on machines without .NET 10 may waste time diagnosing host-toolchain errors. The current host can build with SDK `10.0.400`, so Docker is a fallback and reproducibility mechanism rather than the only local option in this environment.
+Developers on machines without .NET 10 may waste time diagnosing host-toolchain errors. The current host can build with SDK `10.0.400`, so Docker and the Dev Container are fallback/reproducibility mechanisms rather than the only local option in this environment. The Dev Container is an opt-in editor workspace, not a replacement for the running Compose stack or a production image.
 
 ### 22.4 Necessity
 
@@ -846,6 +849,7 @@ No domain logic, authorization rule, or business behavior was changed by `spec_0
 | Metrics and tracing | `spec_007`, `architecture.md` | Point 2 and Point 12 | Metrics delivered; tracing and operational controls incomplete |
 | Log aggregation | `spec_009`, [ADR-002](adr/ADR-002-prometheus-observability.md) | Point 2 | Delivered locally with security and retention caveats |
 | Docker agent teams | `spec_010`, [ADR-003](adr/ADR-003-docker-agents.md) | Point 2 | Optional tooling with sandbox, privacy, quota, and evaluation risks |
+| Dev Container workspace | `spec_011`, [ADR-004](adr/ADR-004-devpod-dev-containers.md), `.devcontainer/` | Point 2 and Point 22 | Optional .NET 10 editor workspace with Compose, portability, emulation, browser, and IDE verification risks |
 | Audit immutability and history | [spec 001 tasks](../.specify/specs/001-vacation-request/tasks.md), Constitution sections 6 and 13 | Points 3 and 4 | Compliance and traceability gaps |
 | Confirmation UI, CDN, headers, authorization | [spec 004 tasks](../.specify/specs/004-initial-setup-and-authentication/tasks.md), Constitution section 7 | Points 5 through 9 | Mixed resolved, security, and verification status |
 | E2E, accessibility, performance, coverage, rate limiting | `spec_001`, `spec_004`, `spec_002`, Constitution sections 9, 11, and 12 | Points 10 through 14 | Verification and quality debt |
@@ -855,11 +859,25 @@ No domain logic, authorization rule, or business behavior was changed by `spec_0
 
 The detailed rationale for the Docker decisions remains in `research.md`; the matrix is an index for review and does not replace those source documents.
 
+### Spec 011 Dev Container Findings
+
+The Dev Container is an opt-in development workspace, not a new application runtime. Its current verification is positive but incomplete: the workspace starts with .NET SDK 10.0.401, the solution builds with zero warnings and errors, the Domain and Application suites pass, and the workspace and web health endpoints respond. The Presentation suite still reproduces its 24–26-failure baseline, so the workspace does not remove the underlying test-isolation problem.
+
+The documented errors have identifiable causes:
+
+- **DevPod maintenance risk (`GAP-011-1`):** upstream is unmaintained and the community fork has a single maintainer. The standard-only `devcontainer.json` is a portability safeguard, not an attempt to depend on DevPod-specific settings.
+- **Docker Desktop context failure (`GAP-011-2`):** DevPod replaces `DOCKER_CONFIG`, hiding the Docker Desktop context and Compose plugin. The documented `DOCKER_HOST` or default-socket configuration and `env -u DOCKER_CONFIG` initialization address the known path, but macOS setup remains environment-dependent.
+- **Duplicate stack and port collisions (`GAP-011-3`):** DevPod names Compose projects itself. If it starts the complete stack, it can either reuse the existing project without the workspace or create a second stack competing for ports 8080, 1433, 3000, 9090, and 3100. The workspace therefore joins external network `novaleave_default`, while `initializeCommand` starts the stack on the host.
+- **Architecture and browser limitations (`GAP-011-4`, `GAP-011-5`):** SQL Server remains emulated on Apple Silicon, and Playwright browsers are not installed in the workspace image. The Dev Container therefore improves editor/toolchain parity but cannot yet provide native performance evidence or complete E2E execution.
+- **IDE verification (`T404`):** VS Code attach, IntelliSense, and breakpoint verification remain pending user confirmation even though command-line build and health checks succeeded.
+
+The workspace intentionally has no Docker socket and does not control the shared stack lifecycle. Closing the Compose stack removes the external network, so the workspace must be recreated or restarted only after the stack is running.
+
 ## Overall Conclusion
 
-The 23 findings do not have equal status. The presentation suite still fails for the documented isolation and role reasons; auto-expiry and the approval double-deduction are active business risks; audit protection, concurrency validation, CDN integrity, security headers, and missing authorization evidence remain high-priority controls. The observability/logging work is useful but still carries the concrete GAP-007 and GAP-009 production-readiness risks documented above. Audit history, accessibility, coverage, performance, rate-limiting verification, infrastructure-test organization, and operational documentation are verification or readiness debt.
+The 23 findings do not have equal status. The presentation suite still fails for the documented isolation and role reasons; auto-expiry and the approval double-deduction are active business risks; audit protection, concurrency validation, CDN integrity, security headers, and missing authorization evidence remain high-priority controls. The observability/logging work is useful but still carries the concrete GAP-007 and GAP-009 production-readiness risks documented above. The new Dev Container improves .NET 10 editor parity and onboarding, but its DevPod, Compose-network, Apple Silicon, Playwright, and IDE-attach caveats remain development-environment risks rather than application fixes. Audit history, accessibility, coverage, performance, rate-limiting verification, infrastructure-test organization, and operational documentation are verification or readiness debt.
 
-The original snapshot is materially stale in five ways: the destructive-action confirmation component now exists and is in use; session revalidation has meaningful tests; a role-switcher E2E suite and metrics/Grafana observability have been added; the ADR directory plus the Docker, retry, appsettings, and development-migration decisions are present or being honored; and optional Docker agent teams now exist with their own documented caveats. These changes reduce some percentages, but they do not establish production readiness because the main test suite remains red and the critical lifecycle, security, operational, and agent-tooling boundaries remain incomplete.
+The original snapshot is materially stale in six ways: the destructive-action confirmation component now exists and is in use; session revalidation has meaningful tests; a role-switcher E2E suite and metrics/Grafana observability have been added; the ADR directory plus the Docker, retry, appsettings, and development-migration decisions are present or being honored; optional Docker agent teams now exist with their own documented caveats; and `spec_011` now provides an opt-in Dev Container workspace. These changes reduce some percentages, but they do not establish production readiness because the main test suite remains red and the critical lifecycle, security, operational, agent-tooling, and development-environment verification boundaries remain incomplete.
 
 The project can run without resolving every finding, but running successfully is not equivalent to being verifiable, secure, operationally ready, or protected against regression. The percentages in this document express the necessity of addressing each point, not the probability that the application will fail immediately. No new numbered issue was added: the balance defect is deliberately recorded under point 2 because it belongs to the same request-lifecycle invariant.
 
